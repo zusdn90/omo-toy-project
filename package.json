@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "typecheck": "node scripts/typecheck.mjs",
     "test": "node --test",
     "lint": "node scripts/lint.mjs",
     "build": "node scripts/build.mjs"

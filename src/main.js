@@ -1,7 +1,17 @@
-import { buildNeighborhoodView, createInitialState, neighborhoods } from './domain.js';
+import { createApiClient } from './api.js';
 
 const app = document.querySelector('#app');
-const state = createInitialState();
+const api = createApiClient();
+const state = {
+  neighborhoods: [],
+  activeNeighborhoodId: null,
+  selectedRestaurantId: null,
+  view: null,
+  report: null,
+  error: null,
+  isLoading: true,
+  requestId: 0
+};
 
 function currency(value) {
   return `${value.toLocaleString('ko-KR')}원`;
@@ -17,9 +27,7 @@ function isSelected(restaurantId, selectedRestaurantId) {
 
 function bindInteractions() {
   document.querySelector('#neighborhood-select')?.addEventListener('change', (event) => {
-    state.activeNeighborhoodId = event.target.value;
-    state.selectedRestaurantId = null;
-    render();
+    void loadNeighborhood(event.target.value);
   });
 
   document.querySelectorAll('[data-restaurant-id]').forEach((element) => {
@@ -30,12 +38,81 @@ function bindInteractions() {
   });
 }
 
+async function bootstrap() {
+  try {
+    state.isLoading = true;
+    render();
+    state.neighborhoods = await api.fetchNeighborhoods();
+    state.activeNeighborhoodId = state.neighborhoods[0]?.id ?? null;
+
+    if (!state.activeNeighborhoodId) {
+      state.isLoading = false;
+      render();
+      return;
+    }
+
+    await loadNeighborhood(state.activeNeighborhoodId, { keepSelection: false, showLoadingState: false });
+  } catch (error) {
+    state.error = error instanceof Error ? error.message : '로컬 API를 불러오지 못했습니다.';
+    state.isLoading = false;
+    render();
+  }
+}
+
+async function loadNeighborhood(neighborhoodId, { keepSelection = false, showLoadingState = true } = {}) {
+  const requestId = ++state.requestId;
+  state.activeNeighborhoodId = neighborhoodId;
+  state.error = null;
+  state.isLoading = showLoadingState;
+
+  if (!keepSelection) {
+    state.selectedRestaurantId = null;
+  }
+
+  render();
+
+  try {
+    const { view, report } = await api.fetchNeighborhoodSnapshot(neighborhoodId);
+    if (requestId !== state.requestId) {
+      return;
+    }
+
+    state.view = view;
+    state.report = report;
+    const selectedRestaurant =
+      view.ranked.find((restaurant) => restaurant.id === state.selectedRestaurantId) ?? view.selected;
+
+    state.selectedRestaurantId = selectedRestaurant?.id ?? null;
+    state.isLoading = false;
+    render();
+  } catch (error) {
+    if (requestId !== state.requestId) {
+      return;
+    }
+
+    state.error = error instanceof Error ? error.message : '선택한 동네 데이터를 불러오지 못했습니다.';
+    state.isLoading = false;
+    render();
+  }
+}
+
 function render() {
-  if (!app || !state.activeNeighborhoodId) {
+  if (!app) {
     return;
   }
 
-  const view = buildNeighborhoodView(state.activeNeighborhoodId);
+  if (!state.view && state.isLoading) {
+    app.innerHTML = '<section class="panel section status-panel">로컬 API에서 시드 데이터를 불러오는 중입니다...</section>';
+    return;
+  }
+
+  if (!state.view) {
+    app.innerHTML = `<section class="panel section status-panel error">${state.error ?? '표시할 데이터가 없습니다.'}</section>`;
+    return;
+  }
+
+  const view = state.view;
+  const report = state.report;
   const selectedRestaurant =
     view.ranked.find((restaurant) => restaurant.id === state.selectedRestaurantId) ?? view.selected;
 
@@ -46,12 +123,10 @@ function render() {
       <label>
         동네 선택
         <select id="neighborhood-select" aria-label="동네 선택">
-          ${neighborhoods
+          ${state.neighborhoods
             .map(
               (neighborhood) => `
-                <option value="${neighborhood.id}" ${
-                  neighborhood.id === state.activeNeighborhoodId ? 'selected' : ''
-                }>
+                <option value="${neighborhood.id}" ${neighborhood.id === state.activeNeighborhoodId ? 'selected' : ''}>
                   ${neighborhood.name}
                 </option>
               `
@@ -81,6 +156,18 @@ function render() {
           <span class="summary-value">${view.summary.lowestPriceLabel}</span>
         </article>
       </div>
+    </section>
+
+    <section class="panel section report-panel">
+      <div class="section-header">
+        <div>
+          <h2>후보 탐색 리포트</h2>
+          <p class="top-reasons">로컬 API가 생성한 계량 지표로 후보군을 얼마나 빨리 좁혔는지 보여줍니다.</p>
+        </div>
+        <span class="tag">${state.isLoading ? '동기화 중' : 'local API'}</span>
+      </div>
+      ${renderReport(report)}
+      ${state.error ? `<p class="status-inline error">${state.error}</p>` : ''}
     </section>
 
     <section class="panel">
@@ -126,11 +213,60 @@ function render() {
     </section>
 
     <footer>
-      블로그 후보 탐색 시간을 줄이기 위한 개인용 MVP · seeded dataset demo
+      블로그 후보 탐색 시간을 줄이기 위한 개인용 MVP · seeded dataset demo · local API powered
     </footer>
   `;
 
   bindInteractions();
+}
+
+function renderReport(report) {
+  if (!report) {
+    return '<div class="empty-state">탐색 리포트를 생성하지 못했습니다.</div>';
+  }
+
+  return `
+    <div class="summary-strip report-metrics">
+      <article class="summary-card">
+        <span class="summary-label">쇼트리스트 압축</span>
+        <span class="summary-value">${report.summary.shortlistCount}/${report.summary.candidateCount}</span>
+      </article>
+      <article class="summary-card">
+        <span class="summary-label">만원 이하 후보</span>
+        <span class="summary-value">${report.summary.affordableCount}곳</span>
+      </article>
+      <article class="summary-card">
+        <span class="summary-label">근거량 강한 후보</span>
+        <span class="summary-value">${report.summary.evidenceStrongCount}곳</span>
+      </article>
+      <article class="summary-card">
+        <span class="summary-label">점수 편차</span>
+        <span class="summary-value">${report.summary.scoreSpread}</span>
+      </article>
+    </div>
+    <p class="report-copy">${report.narrative}</p>
+    <div class="report-grid">
+      <article class="report-block">
+        <h3>탐색 기준</h3>
+        <ul class="reason-list">
+          <li>맛 ${Math.round(report.instrumentation.weights.taste * 100)}%</li>
+          <li>가성비 ${Math.round(report.instrumentation.weights.affordability * 100)}%</li>
+          <li>근거량 ${Math.round(report.instrumentation.weights.evidence * 100)}%</li>
+          <li>긍정 반응 ${Math.round(report.instrumentation.weights.sentiment * 100)}%</li>
+        </ul>
+      </article>
+      <article class="report-block">
+        <h3>상위 후보 신호</h3>
+        <ul class="reason-list compact">
+          ${report.shortlist
+            .map(
+              (candidate) => `<li><strong>${candidate.rank}위 ${candidate.name}</strong> · 점수 ${candidate.score} · 후기 ${candidate.evidenceCount}개</li>`
+            )
+            .join('')}
+        </ul>
+      </article>
+    </div>
+  `;
 }
 
 function renderTopCards(top5, selectedRestaurantId) {
@@ -171,7 +307,7 @@ function renderMarkers(ranked, selectedRestaurantId) {
           aria-label="${index + 1}위 ${restaurant.name}"
           title="${restaurant.name}"
         ></button>
-        <div class="marker-label" style="left:${restaurant.x}%; top:${restaurant.y}%;">${index + 1}</div>
+        <div class="marker-label" style="left:${restaurant.x}%; top:${restaurant.y}%">${index + 1}</div>
       `
     )
     .join('');
@@ -257,4 +393,4 @@ function renderDetail(selectedRestaurant) {
   `;
 }
 
-render();
+void bootstrap();

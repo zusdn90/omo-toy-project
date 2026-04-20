@@ -344,6 +344,48 @@ select {
   padding-left: 18px;
 }
 
+.status-panel {
+  text-align: center;
+  color: var(--subtle);
+}
+
+.status-panel.error,
+.status-inline.error {
+  color: #b42318;
+}
+
+.report-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.report-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.report-block {
+  background: var(--panel-muted);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.report-copy {
+  margin: 0;
+  color: var(--subtle);
+  line-height: 1.6;
+}
+
+.reason-list.compact li + li {
+  margin-top: 8px;
+}
+
+.status-inline {
+  margin: 0;
+  font-weight: 600;
+}
+
 .empty-state {
   padding: 24px;
   text-align: center;
