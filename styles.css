@@ -1,0 +1,375 @@
+:root {
+  color-scheme: light;
+  --bg: #f5f7fb;
+  --panel: #ffffff;
+  --panel-muted: #eef3ff;
+  --text: #1a2233;
+  --subtle: #61708a;
+  --primary: #2d6df6;
+  --primary-soft: rgba(45, 109, 246, 0.14);
+  --accent: #f97316;
+  --border: #d6dfef;
+  --shadow: 0 18px 40px rgba(28, 42, 70, 0.08);
+  font-family: "Inter", "Pretendard", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 45%, #fefefe 100%);
+  color: var(--text);
+}
+
+button,
+select {
+  font: inherit;
+}
+
+.page-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
+}
+
+.hero {
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+.hero-copy {
+  max-width: 760px;
+  margin: 16px 0 0;
+  color: var(--subtle);
+  line-height: 1.6;
+}
+
+.layout {
+  display: grid;
+  gap: 20px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  align-items: center;
+}
+
+.toolbar label {
+  display: grid;
+  gap: 8px;
+  color: var(--subtle);
+  font-weight: 600;
+}
+
+.toolbar select {
+  min-width: 220px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.summary-strip {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.summary-card,
+.top-card,
+.detail-metric {
+  background: var(--panel-muted);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.summary-label,
+.metric-label,
+.top-rank {
+  display: block;
+  color: var(--subtle);
+  font-size: 0.9rem;
+}
+
+.summary-value,
+.metric-value {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.evidence-note {
+  margin: 0;
+  padding: 0 24px 24px;
+  color: var(--subtle);
+  line-height: 1.5;
+}
+
+.dual-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
+  gap: 20px;
+}
+
+.section {
+  padding: 24px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.section-header h2,
+.section-header h3,
+.detail-panel h2 {
+  margin: 0;
+}
+
+.section-header p,
+.detail-copy,
+.rank-meta,
+.top-reasons,
+.reason-list,
+.specialty-list {
+  margin: 8px 0 0;
+  color: var(--subtle);
+}
+
+.top-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.top-card {
+  border: 1px solid transparent;
+}
+
+.top-score {
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 700;
+}
+
+.top-card button,
+.rank-item button,
+.marker {
+  cursor: pointer;
+}
+
+.top-card button,
+.rank-item button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.map-shell {
+  position: relative;
+  min-height: 380px;
+  overflow: hidden;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(45, 109, 246, 0.2), transparent 35%),
+    radial-gradient(circle at 80% 30%, rgba(249, 115, 22, 0.12), transparent 28%),
+    linear-gradient(180deg, #edf4ff, #f9fbff 45%, #eef7f6 100%);
+  border: 1px solid var(--border);
+}
+
+.map-road,
+.map-river {
+  position: absolute;
+  border-radius: 999px;
+}
+
+.map-road {
+  background: rgba(26, 34, 51, 0.08);
+}
+
+.map-road.horizontal {
+  height: 12px;
+  width: 120%;
+  left: -10%;
+}
+
+.map-road.vertical {
+  width: 12px;
+  height: 120%;
+  top: -10%;
+}
+
+.map-river {
+  width: 130%;
+  height: 18px;
+  left: -15%;
+  background: rgba(77, 169, 255, 0.18);
+  transform: rotate(-12deg);
+}
+
+.marker-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 3px solid #fff;
+  background: var(--primary);
+  box-shadow: 0 10px 24px rgba(45, 109, 246, 0.35);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.marker:hover,
+.marker.active {
+  transform: translate(-50%, -50%) scale(1.18);
+  background: var(--accent);
+}
+
+.marker-label {
+  position: absolute;
+  transform: translate(-50%, 12px);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 4px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.rank-list {
+  display: grid;
+  gap: 12px;
+}
+
+.rank-item {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  background: #fff;
+}
+
+.rank-item.active,
+.top-card.active {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.rank-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rank-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.score-badge,
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.rank-tags,
+.detail-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.tag.subtle {
+  background: #f2f4f8;
+  color: var(--subtle);
+}
+
+.detail-panel {
+  padding: 24px;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin-top: 20px;
+}
+
+.detail-panel ul {
+  padding-left: 18px;
+}
+
+.empty-state {
+  padding: 24px;
+  text-align: center;
+  color: var(--subtle);
+}
+
+footer {
+  margin-top: 20px;
+  color: var(--subtle);
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .dual-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-shell {
+    padding-inline: 14px;
+  }
+
+  .toolbar,
+  .section,
+  .detail-panel {
+    padding: 18px;
+  }
+}
