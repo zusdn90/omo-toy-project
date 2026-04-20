@@ -2,10 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildCandidateReport,
   buildNeighborhoodView,
   buildReasons,
   calculateValueScore,
-  restaurants
+  restaurants,
+  SCORE_WEIGHTS
 } from '../src/domain.js';
 
 test('calculateValueScore rewards strong taste/evidence without exceeding a usable range', () => {
@@ -53,4 +55,14 @@ test('top 5 order mirrors the full ranking order', () => {
     view.top5.map((restaurant) => restaurant.id),
     view.ranked.slice(0, 5).map((restaurant) => restaurant.id)
   );
+});
+
+test('buildCandidateReport exposes measurable shortlist instrumentation', () => {
+  const report = buildCandidateReport('euljiro');
+
+  assert.equal(report.summary.candidateCount, 6);
+  assert.equal(report.summary.shortlistCount, 5);
+  assert.equal(report.instrumentation.weights.evidence, SCORE_WEIGHTS.evidence);
+  assert(report.shortlist[0].primaryReason.length > 0);
+  assert(report.candidates.every((candidate) => typeof candidate.signals.affordable === 'boolean'));
 });

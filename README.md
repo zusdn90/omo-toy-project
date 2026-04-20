@@ -1,6 +1,7 @@
 # omo-toy-project
 
 동네 가성비 맛집을 지도 + 랭킹 + 자동 Top 5 추천으로 보여주는 개인용 MVP입니다.
+이제 로컬 전용 무의존성 API 서버가 시드 데이터와 후보 탐색 리포트를 함께 제공합니다.
 
 ## Current shape
 
@@ -27,9 +28,18 @@
 
 ## Run locally
 
-### Static demo
+```bash
+npm run dev
+```
 
-브라우저에서 `index.html`을 직접 열거나, 정적 서버를 띄워 확인할 수 있습니다.
+기본 주소는 `http://127.0.0.1:4173`입니다.
+
+### Local API
+
+- `GET /api/health` — 로컬 서버 상태 확인
+- `GET /api/neighborhoods` — 시드된 동네 목록
+- `GET /api/neighborhoods/:id/view` — 지도/랭킹 UI용 정렬 결과
+- `GET /api/neighborhoods/:id/report` — 후보 압축·근거량·점수 편차를 담은 탐색 리포트
 
 ### Local-safe runtime (documented target)
 
@@ -44,6 +54,7 @@
 ## Verification
 
 ```bash
+npm run typecheck
 npm test
 npm run lint
 npm run build
