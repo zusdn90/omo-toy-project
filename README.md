@@ -26,20 +26,34 @@
 
 세부 계약과 리뷰 메모는 [`docs/local-safe-ops.md`](docs/local-safe-ops.md)에 정리했습니다.
 
+## Current shape
+
+- **현재 베이스라인**: seeded 데이터 기반의 정적 MVP
+- **이번 local-safe 확장 목표**: 외부 서비스나 새 의존성 없이 로컬 서버/API 레이어, 후보 탐색 계측, 문서/검증 품질을 강화
+- **주 사용자**: 블로그 후보를 빠르게 고르고 싶은 개인 사용자의 로컬 워크플로
+
+## Local-safe expansion contract
+
+이번 라운드에서 문서화한 확장 방향은 아래 3가지입니다.
+
+1. **Local server / API layer**
+   - seeded 데이터를 브라우저 직접 import 대신 로컬 API로도 소비할 수 있게 유지
+   - Node 내장 기능만 사용하고 외부 DB/호스팅 의존성을 추가하지 않음
+2. **Candidate-finding instrumentation**
+   - 어떤 동네를 얼마나 전환했는지
+   - Top 5/상세 패널에서 어떤 후보를 선택했는지
+   - 첫 후보 선택까지 걸린 시간을 로컬에서만 측정
+3. **Verification tightening**
+   - `npm test`, `npm run lint`, `npm run build`를 기본 회귀 체크로 유지
+   - 변경 시에는 로컬 API 응답/리포트 산출물까지 함께 확인
+
+세부 계약과 리뷰 메모는 [`docs/local-safe-ops.md`](docs/local-safe-ops.md)에 정리했습니다.
+
 ## Run locally
 
-```bash
-npm run dev
-```
+### Static demo
 
-기본 주소는 `http://127.0.0.1:4173`입니다.
-
-### Local API
-
-- `GET /api/health` — 로컬 서버 상태 확인
-- `GET /api/neighborhoods` — 시드된 동네 목록
-- `GET /api/neighborhoods/:id/view` — 지도/랭킹 UI용 정렬 결과
-- `GET /api/neighborhoods/:id/report` — 후보 압축·근거량·점수 편차를 담은 탐색 리포트
+브라우저에서 `index.html`을 직접 열거나, 정적 서버를 띄워 확인할 수 있습니다.
 
 ### Local-safe runtime (documented target)
 
