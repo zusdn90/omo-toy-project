@@ -2,6 +2,7 @@
 
 동네 가성비 맛집을 **지도 + 랭킹 + 자동 Top 5 추천**으로 보여주는 개인용 MVP입니다.  
 외부 의존성 없이 로컬에서 동작하도록, 시드 데이터 기반 UI와 로컬 API 레이어를 함께 제공합니다.
+현재는 Kakao Maps JS SDK와 Kakao Local REST API를 연결할 수 있도록 환경변수 기반 설정도 지원합니다.
 
 ## 주요 기능
 
@@ -13,6 +14,19 @@
 - 로컬 API 제공 (Node 내장 HTTP)
 
 ## 로컬 실행
+
+먼저 `.env`를 준비하세요.
+
+```bash
+cp .env.example .env
+```
+
+`.env`에는 다음 값을 넣습니다.
+
+- `KAKAO_JS_KEY`
+- `KAKAO_REST_API_KEY`
+
+그 다음 실행합니다.
 
 ```bash
 npm run dev
@@ -40,3 +54,4 @@ npm run build
 
 - 로컬 확장/운영 계약: [`docs/local-safe-ops.md`](docs/local-safe-ops.md)
 - 현재 Kakao Map 연동 범위: [`docs/kakao-map-integration.md`](docs/kakao-map-integration.md)
+- Kakao place migration scope: [`docs/kakao-map-integration-scope.md`](docs/kakao-map-integration-scope.md)

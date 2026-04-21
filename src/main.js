@@ -1,11 +1,7 @@
 import { createApiClient } from './api.js';
 
-const KAKAO_JS_KEY = '954b9ee91e9b8b758ca48e368d9cdaeb';
-const NEIGHBORHOOD_MAP_CENTERS = {
-  seongsu: { lat: 37.5442, lng: 127.0558, level: 4 },
-  mangwon: { lat: 37.5567, lng: 126.9105, level: 4 },
-  euljiro: { lat: 37.5663, lng: 126.9924, level: 4 }
-};
+const runtimeConfig = window.__OMO_APP_CONFIG__ ?? {};
+const KAKAO_JS_KEY = runtimeConfig.kakaoJsKey ?? '';
 const RESTAURANT_LAT_SPAN = 0.00036;
 const RESTAURANT_LNG_SPAN = 0.00044;
 
@@ -28,11 +24,68 @@ const mapState = {
 };
 
 function currency(value) {
+  if (!Number.isFinite(value)) {
+    return '-';
+  }
+
   return `${value.toLocaleString('ko-KR')}원`;
 }
 
 function percentage(value) {
+  if (!Number.isFinite(value)) {
+    return '-';
+  }
+
   return `${(value * 100).toFixed(0)}%`;
+}
+
+function formatDistance(distanceMeters) {
+  if (!Number.isFinite(distanceMeters)) {
+    return '-';
+  }
+
+  return `${distanceMeters.toLocaleString('ko-KR')}m`;
+}
+
+function getNeighborhoodCenter(neighborhoodOrId) {
+  const neighborhood =
+    typeof neighborhoodOrId === 'string'
+      ? state.neighborhoods.find((item) => item.id === neighborhoodOrId)
+      : neighborhoodOrId;
+
+  return neighborhood?.mapCenter ?? state.neighborhoods.find((item) => item.id === 'seongsu')?.mapCenter ?? {
+    lat: 37.5442,
+    lng: 127.0558,
+    level: 4
+  };
+}
+
+function getPlaceLocationLabel(place) {
+  return place.roadAddressName || place.addressName || place.note || '-';
+}
+
+function getPlaceSubtitle(place) {
+  if (Number.isFinite(place.distanceMeters)) {
+    return `${formatDistance(place.distanceMeters)} · ${place.category}`;
+  }
+
+  if (Number.isFinite(place.avgMealPrice)) {
+    return `${place.category} · 평균 ${currency(place.avgMealPrice)}`;
+  }
+
+  return place.category || place.note || '-';
+}
+
+function getPlaceBadge(place) {
+  if (Number.isFinite(place.score)) {
+    return place.score;
+  }
+
+  if (Number.isFinite(place.distanceMeters)) {
+    return place.distanceMeters;
+  }
+
+  return '-';
 }
 
 function isSelected(restaurantId, selectedRestaurantId) {
@@ -48,6 +101,23 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+function safePlaceUrl(value) {
+  if (typeof value !== 'string' || value.length === 0) {
+    return '#';
+  }
+
+  try {
+    const url = new URL(value);
+    if (url.hostname === 'place.map.kakao.com' && (url.protocol === 'https:' || url.protocol === 'http:')) {
+      return url.href;
+    }
+  } catch {
+    return '#';
+  }
+
+  return '#';
+}
+
 function renderNeighborhoodTabs() {
   return `
     <div class="neighborhood-tabs" role="tablist" aria-label="동네 선택">
@@ -57,11 +127,11 @@ function renderNeighborhoodTabs() {
             <button
               type="button"
               class="neighborhood-tab ${neighborhood.id === state.activeNeighborhoodId ? 'active' : ''}"
-              data-neighborhood-id="${neighborhood.id}"
+              data-neighborhood-id="${escapeHtml(neighborhood.id)}"
               aria-pressed="${neighborhood.id === state.activeNeighborhoodId ? 'true' : 'false'}"
             >
-              <span class="tab-name">${neighborhood.name}</span>
-              <span class="tab-vibe">${neighborhood.id === state.activeNeighborhoodId ? '현재 탐색 중' : '전환'}</span>
+              <span class="tab-name">${escapeHtml(neighborhood.name)}</span>
+              <span class="tab-vibe">${escapeHtml(neighborhood.id === state.activeNeighborhoodId ? '현재 탐색 중' : '전환')}</span>
             </button>
           `
         )
@@ -73,25 +143,28 @@ function renderNeighborhoodTabs() {
 function renderMetricStrip(view, report) {
   const shortlistCount = report?.summary.shortlistCount ?? view.top5.length;
   const candidateCount = report?.summary.candidateCount ?? view.ranked.length;
-  const scoreSpread = report?.summary.scoreSpread ?? 0;
+  const scoreLabel =
+    report?.summary.averageScore != null ? report.summary.averageScore : view.summary.averageScore ?? '0.0';
+  const sourceLabel = view.source === 'kakao' ? 'Kakao Local' : 'Seeded fallback';
+  const distanceLabel = report?.summary.averageDistance ?? view.summary.averageDistance ?? 0;
 
   return `
     <div class="metric-strip">
       <article class="summary-card emphasis">
-        <span class="summary-label">등록 후보</span>
-        <span class="summary-value">${view.summary.totalRestaurants}곳</span>
+        <span class="summary-label">탐색 결과</span>
+        <span class="summary-value">${escapeHtml(view.summary.totalPlaces ?? view.summary.totalRestaurants ?? view.ranked.length)}곳</span>
       </article>
       <article class="summary-card">
-        <span class="summary-label">평균 가성비 점수</span>
-        <span class="summary-value">${view.summary.averageScore}</span>
+        <span class="summary-label">${view.source === 'kakao' ? '평균 점수' : '평균 가성비 점수'}</span>
+        <span class="summary-value">${escapeHtml(scoreLabel)}</span>
       </article>
       <article class="summary-card">
         <span class="summary-label">Top 5 압축</span>
-        <span class="summary-value">${shortlistCount}/${candidateCount}</span>
+        <span class="summary-value">${escapeHtml(shortlistCount)}/${escapeHtml(candidateCount)}</span>
       </article>
       <article class="summary-card">
-        <span class="summary-label">점수 편차</span>
-        <span class="summary-value">${scoreSpread}</span>
+        <span class="summary-label">${view.source === 'kakao' ? '평균 거리' : '데이터 소스'}</span>
+        <span class="summary-value">${escapeHtml(view.source === 'kakao' ? formatDistance(distanceLabel) : sourceLabel)}</span>
       </article>
     </div>
   `;
@@ -99,18 +172,20 @@ function renderMetricStrip(view, report) {
 
 function renderMapShell(view, selectedRestaurant) {
   return `
-    <div class="map-shell">
-      <div id="kakao-map" class="kakao-map" aria-label="카카오 지도"></div>
-      <div class="map-overlay">
-        <span class="map-chip">Kakao Map</span>
-        <span class="map-chip subtle">${view.summary.bestEvidenceName}</span>
+      <div class="map-shell">
+        <div id="kakao-map" class="kakao-map" aria-label="카카오 지도"></div>
+        <div class="map-overlay">
+          <span class="map-chip">Kakao Map</span>
+          <span class="map-chip subtle">${escapeHtml(view.source === 'kakao' ? view.summary.searchQuery : view.summary.bestEvidenceName)}</span>
+        </div>
+        <div class="map-status" data-map-status>${
+        view.source === 'kakao' ? 'Kakao place 데이터를 불러오는 중입니다...' : '카카오맵을 불러오는 중입니다...'
+      }</div>
+        <div class="map-status-pill">
+        <span class="tag">${escapeHtml(view.summary.totalPlaces ?? view.summary.totalRestaurants)} places</span>
+        <span class="tag subtle">${selectedRestaurant ? `선택: ${escapeHtml(selectedRestaurant.name)}` : '선택 없음'}</span>
+        </div>
       </div>
-      <div class="map-status" data-map-status>카카오맵을 불러오는 중입니다...</div>
-      <div class="map-status-pill">
-        <span class="tag">${view.summary.totalRestaurants} places</span>
-        <span class="tag subtle">${selectedRestaurant ? `선택: ${selectedRestaurant.name}` : '선택 없음'}</span>
-      </div>
-    </div>
   `;
 }
 
@@ -201,7 +276,7 @@ function render() {
   }
 
   if (!state.view) {
-    app.innerHTML = `<section class="panel section status-panel error">${state.error ?? '표시할 데이터가 없습니다.'}</section>`;
+    app.innerHTML = `<section class="panel section status-panel error">${escapeHtml(state.error ?? '표시할 데이터가 없습니다.')}</section>`;
     return;
   }
 
@@ -218,20 +293,20 @@ function render() {
         <p class="eyebrow">개인용 블로그 후보 발굴 도구</p>
         <h1>동네 가성비 맛집 지도</h1>
         <p class="hero-copy">
-          동네를 바꾸면 지도와 랭킹이 동시에 갱신되고, 공개 후기·블로그 근거가 풍부한 후보를 우선으로 자동 Top 5가 정리됩니다.
+          동네를 바꾸면 지도와 랭킹이 동시에 갱신되고, Kakao 장소 결과와 로컬 후보를 한 화면에서 함께 확인할 수 있습니다.
         </p>
       </div>
 
       <div class="hero-stats">
         <article class="hero-stat">
           <span class="summary-label">현재 탐색 동네</span>
-          <strong>${view.neighborhood?.name ?? '동네 없음'}</strong>
-          <p>${view.neighborhood?.vibe ?? '선택한 동네 정보가 없습니다.'}</p>
+          <strong>${escapeHtml(view.neighborhood?.name ?? '동네 없음')}</strong>
+          <p>${escapeHtml(view.neighborhood?.vibe ?? '선택한 동네 정보가 없습니다.')}</p>
         </article>
         <article class="hero-stat">
           <span class="summary-label">가성비 전략</span>
           <strong>Evidence first</strong>
-          <p>후기·블로그 근거량이 충분한 곳을 먼저 검토합니다.</p>
+          <p>장소 정보와 위치 맥락을 먼저 확인한 뒤 후보를 빠르게 좁힙니다.</p>
         </article>
       </div>
     </section>
@@ -267,7 +342,7 @@ function render() {
             <div>
               <p class="section-kicker">Shortlist</p>
               <h2>자동 추천 Top 5</h2>
-              <p class="top-reasons">가성비 점수와 근거량을 묶어서 바로 검토할 수 있게 정리했어요.</p>
+              <p class="top-reasons">지도와 리스트를 한 번에 보면서 바로 검토할 수 있게 정리했어요.</p>
             </div>
           </div>
           ${renderTopCards(view.top5, state.selectedRestaurantId)}
@@ -297,7 +372,7 @@ function render() {
     </div>
 
     <footer>
-      블로그 후보 탐색 시간을 줄이기 위한 개인용 MVP · seeded dataset demo · Kakao Map powered
+      블로그 후보 탐색 시간을 줄이기 위한 개인용 MVP · Kakao Map powered
     </footer>
   `;
 
@@ -310,53 +385,110 @@ function renderReport(report) {
     return '<div class="empty-state">탐색 리포트를 생성하지 못했습니다.</div>';
   }
 
-  return `
-    <div class="section-header report-header">
-      <div>
-        <p class="section-kicker">Insight report</p>
-        <h2>후보 탐색 리포트</h2>
+  if (report.instrumentation?.source === 'kakao-local-api') {
+    return `
+      <div class="section-header report-header">
+        <div>
+          <p class="section-kicker">Insight report</p>
+          <h2>Kakao place 탐색 리포트</h2>
+        </div>
+        <span class="tag">kakao local</span>
       </div>
+
+      <p class="report-copy">${escapeHtml(report.narrative)}</p>
+
+      <div class="summary-strip report-metrics">
+        <article class="summary-card">
+          <span class="summary-label">후보 수</span>
+          <span class="summary-value">${escapeHtml(report.summary.candidateCount)}</span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">쇼트리스트</span>
+          <span class="summary-value">${escapeHtml(report.summary.shortlistCount)}</span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">평균 거리</span>
+          <span class="summary-value">${escapeHtml(formatDistance(report.summary.averageDistance))}</span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">가장 가까운 후보</span>
+          <span class="summary-value">${escapeHtml(formatDistance(report.summary.nearestDistance))}</span>
+        </article>
+      </div>
+
+      <div class="report-grid">
+        <article class="report-block">
+          <h3>검색 기준</h3>
+          <ul class="reason-list">
+            <li>검색어: ${escapeHtml(report.instrumentation.query)}</li>
+            <li>반경: ${escapeHtml(formatDistance(report.instrumentation.radiusMeters))}</li>
+            <li>정렬: ${escapeHtml(report.instrumentation.sort)}</li>
+          </ul>
+          <p class="report-copy subtle">${escapeHtml(report.instrumentation.strategy)}</p>
+        </article>
+        <article class="report-block">
+          <h3>상위 후보 신호</h3>
+          <ul class="reason-list compact">
+            ${report.shortlist
+              .map(
+                (candidate) =>
+                  `<li><strong>${escapeHtml(candidate.rank)}위 ${escapeHtml(candidate.name)}</strong> · ${escapeHtml(candidate.category)} · ${escapeHtml(formatDistance(candidate.distanceMeters))}</li>`
+              )
+              .join('')}
+          </ul>
+        </article>
+      </div>
+    `;
+  }
+
+  return `
+      <div class="section-header report-header">
+        <div>
+          <p class="section-kicker">Insight report</p>
+          <h2>후보 탐색 리포트</h2>
+        </div>
       <span class="tag">local API</span>
     </div>
 
-    <p class="report-copy">${report.narrative}</p>
+    <p class="report-copy">${escapeHtml(report.narrative)}</p>
 
     <div class="summary-strip report-metrics">
       <article class="summary-card">
-        <span class="summary-label">쇼트리스트 압축</span>
-        <span class="summary-value">${report.summary.shortlistCount}/${report.summary.candidateCount}</span>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">만원 이하 후보</span>
-        <span class="summary-value">${report.summary.affordableCount}곳</span>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">근거량 강한 후보</span>
-        <span class="summary-value">${report.summary.evidenceStrongCount}곳</span>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">긍정 반응 강한 후보</span>
-        <span class="summary-value">${report.summary.highConfidenceCount}곳</span>
-      </article>
+          <span class="summary-label">쇼트리스트 압축</span>
+          <span class="summary-value">${escapeHtml(report.summary.shortlistCount)}/${escapeHtml(report.summary.candidateCount)}</span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">만원 이하 후보</span>
+          <span class="summary-value">${escapeHtml(report.summary.affordableCount)}곳</span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">근거량 강한 후보</span>
+          <span class="summary-value">${escapeHtml(report.summary.evidenceStrongCount)}곳</span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">긍정 반응 강한 후보</span>
+          <span class="summary-value">${escapeHtml(report.summary.highConfidenceCount)}곳</span>
+        </article>
     </div>
 
     <div class="report-grid">
       <article class="report-block">
         <h3>탐색 기준</h3>
         <ul class="reason-list">
-          <li>맛 ${Math.round(report.instrumentation.weights.taste * 100)}%</li>
-          <li>가성비 ${Math.round(report.instrumentation.weights.affordability * 100)}%</li>
-          <li>근거량 ${Math.round(report.instrumentation.weights.evidence * 100)}%</li>
-          <li>긍정 반응 ${Math.round(report.instrumentation.weights.sentiment * 100)}%</li>
+          <li>맛 ${escapeHtml(Math.round(report.instrumentation.weights.taste * 100))}%</li>
+          <li>가성비 ${escapeHtml(Math.round(report.instrumentation.weights.affordability * 100))}%</li>
+          <li>근거량 ${escapeHtml(Math.round(report.instrumentation.weights.evidence * 100))}%</li>
+          <li>긍정 반응 ${escapeHtml(Math.round(report.instrumentation.weights.sentiment * 100))}%</li>
         </ul>
-        <p class="report-copy subtle">${report.instrumentation.strategy}</p>
+        <p class="report-copy subtle">${escapeHtml(report.instrumentation.strategy)}</p>
       </article>
       <article class="report-block">
         <h3>상위 후보 신호</h3>
         <ul class="reason-list compact">
           ${report.shortlist
             .map(
-              (candidate) => `<li><strong>${candidate.rank}위 ${candidate.name}</strong> · 점수 ${candidate.score} · 후기 ${candidate.evidenceCount}개</li>`
+              (candidate) =>
+                `<li><strong>${escapeHtml(candidate.rank)}위 ${escapeHtml(candidate.name)}</strong> · 점수 ${escapeHtml(candidate.score)} · 후기 ${escapeHtml(candidate.evidenceCount)}개</li>`
             )
             .join('')}
         </ul>
@@ -376,12 +508,12 @@ function renderTopCards(top5, selectedRestaurantId) {
         .map(
           (restaurant, index) => `
             <article class="top-card ${isSelected(restaurant.id, selectedRestaurantId)}">
-              <button type="button" data-restaurant-id="${restaurant.id}">
-                <span class="top-rank">Top ${index + 1}</span>
-                <h3>${restaurant.name}</h3>
-                <p class="rank-meta">${restaurant.category} · 평균 ${currency(restaurant.avgMealPrice)}</p>
-                <span class="top-score">점수 ${restaurant.score}</span>
-                <p class="top-reasons">${restaurant.reasons[0]}</p>
+              <button type="button" data-restaurant-id="${escapeHtml(restaurant.id)}">
+                <span class="top-rank">Top ${escapeHtml(index + 1)}</span>
+                <h3>${escapeHtml(restaurant.name)}</h3>
+                <p class="rank-meta">${escapeHtml(getPlaceSubtitle(restaurant))}</p>
+                <span class="top-score">점수 ${escapeHtml(getPlaceBadge(restaurant))}</span>
+                <p class="top-reasons">${escapeHtml(getPlaceLocationLabel(restaurant))}</p>
               </button>
             </article>
           `
@@ -400,18 +532,18 @@ function renderRankList(ranked, selectedRestaurantId) {
     .map(
       (restaurant, index) => `
         <article class="rank-item ${isSelected(restaurant.id, selectedRestaurantId)}">
-          <button type="button" data-restaurant-id="${restaurant.id}">
+          <button type="button" data-restaurant-id="${escapeHtml(restaurant.id)}">
             <div class="rank-topline">
               <div>
-                <span class="summary-label">${index + 1}위</span>
-                <div class="rank-name">${restaurant.name}</div>
+                <span class="summary-label">${escapeHtml(index + 1)}위</span>
+                <div class="rank-name">${escapeHtml(restaurant.name)}</div>
               </div>
-              <span class="score-badge">${restaurant.score}</span>
+              <span class="score-badge">${escapeHtml(getPlaceBadge(restaurant))}</span>
             </div>
-            <p class="rank-meta">${restaurant.category} · 평균 ${currency(restaurant.avgMealPrice)} · 후기 ${restaurant.evidenceCount}개</p>
+            <p class="rank-meta">${escapeHtml(getPlaceSubtitle(restaurant))}</p>
             <div class="rank-tags">
-              <span class="tag">블로그 ${restaurant.blogMentions}</span>
-              <span class="tag subtle">긍정 ${percentage(restaurant.positiveReviewRatio)}</span>
+              <span class="tag">${escapeHtml(restaurant.placeUrl ? 'Kakao place' : 'Seeded data')}</span>
+              <span class="tag subtle">${escapeHtml(getPlaceLocationLabel(restaurant))}</span>
             </div>
           </button>
         </article>
@@ -425,47 +557,93 @@ function renderDetail(selectedRestaurant) {
     return '<div class="empty-state">선택된 후보가 없습니다.</div>';
   }
 
+  if (selectedRestaurant.placeUrl || selectedRestaurant.addressName || selectedRestaurant.roadAddressName) {
+    return `
+      <div class="detail-hero">
+        <span class="tag">${escapeHtml(selectedRestaurant.source === 'kakao' ? 'Kakao place' : '현재 추천 후보')}</span>
+        <h2>${escapeHtml(selectedRestaurant.name)}</h2>
+        <p class="detail-copy">${escapeHtml(getPlaceLocationLabel(selectedRestaurant))}</p>
+      </div>
+
+      <div class="detail-grid">
+        <article class="detail-metric">
+          <span class="metric-label">점수</span>
+          <span class="metric-value">${escapeHtml(getPlaceBadge(selectedRestaurant))}</span>
+        </article>
+        <article class="detail-metric">
+          <span class="metric-label">카테고리</span>
+          <span class="metric-value">${escapeHtml(selectedRestaurant.category || '-')}</span>
+        </article>
+        <article class="detail-metric">
+          <span class="metric-label">거리</span>
+          <span class="metric-value">${escapeHtml(formatDistance(selectedRestaurant.distanceMeters))}</span>
+        </article>
+        <article class="detail-metric">
+          <span class="metric-label">전화</span>
+          <span class="metric-value">${escapeHtml(selectedRestaurant.phone || '-')}</span>
+        </article>
+      </div>
+
+      <section>
+        <h3>주소</h3>
+        <ul class="specialty-list">
+          <li>${escapeHtml(selectedRestaurant.roadAddressName || '도로명 주소 정보 없음')}</li>
+          <li>${escapeHtml(selectedRestaurant.addressName || '지번 주소 정보 없음')}</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>바로가기</h3>
+        <ul class="specialty-list">
+          <li><a href="${escapeHtml(safePlaceUrl(selectedRestaurant.placeUrl))}" target="_blank" rel="noreferrer">카카오 장소 상세 페이지 열기</a></li>
+        </ul>
+      </section>
+    `;
+  }
+
   return `
     <div class="detail-hero">
       <span class="tag">현재 추천 후보</span>
-      <h2>${selectedRestaurant.name}</h2>
-      <p class="detail-copy">${selectedRestaurant.note}</p>
+      <h2>${escapeHtml(selectedRestaurant.name)}</h2>
+      <p class="detail-copy">${escapeHtml(selectedRestaurant.note)}</p>
     </div>
 
     <div class="detail-grid">
       <article class="detail-metric">
         <span class="metric-label">가성비 점수</span>
-        <span class="metric-value">${selectedRestaurant.score}</span>
+        <span class="metric-value">${escapeHtml(selectedRestaurant.score)}</span>
       </article>
       <article class="detail-metric">
         <span class="metric-label">평균 식사비</span>
-        <span class="metric-value">${currency(selectedRestaurant.avgMealPrice)}</span>
+        <span class="metric-value">${escapeHtml(currency(selectedRestaurant.avgMealPrice))}</span>
       </article>
       <article class="detail-metric">
         <span class="metric-label">근거 후기 수</span>
-        <span class="metric-value">${selectedRestaurant.evidenceCount}</span>
+        <span class="metric-value">${escapeHtml(selectedRestaurant.evidenceCount)}</span>
       </article>
       <article class="detail-metric">
         <span class="metric-label">긍정 반응</span>
-        <span class="metric-value">${percentage(selectedRestaurant.positiveReviewRatio)}</span>
+        <span class="metric-value">${escapeHtml(percentage(selectedRestaurant.positiveReviewRatio))}</span>
       </article>
     </div>
 
     <div class="detail-tags">
-      ${selectedRestaurant.specialties.map((specialty) => `<span class="tag subtle">${specialty}</span>`).join('')}
+      ${selectedRestaurant.specialties
+        .map((specialty) => `<span class="tag subtle">${escapeHtml(specialty)}</span>`)
+        .join('')}
     </div>
 
     <section>
       <h3>추천 이유</h3>
       <ul class="reason-list">
-        ${selectedRestaurant.reasons.map((reason) => `<li>${reason}</li>`).join('')}
+        ${selectedRestaurant.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}
       </ul>
     </section>
 
     <section>
       <h3>포스팅 포인트</h3>
       <ul class="specialty-list">
-        <li>${selectedRestaurant.category} 카테고리에서 블로그 포맷화가 쉬운 메뉴 구성이에요.</li>
+        <li>${escapeHtml(selectedRestaurant.category)} 카테고리에서 블로그 포맷화가 쉬운 메뉴 구성이에요.</li>
         <li>근거량 우선 전략에서 안정적인 검증 후보예요.</li>
         <li>지도와 랭킹에서 위치/점수 맥락을 동시에 확인할 수 있어요.</li>
       </ul>
@@ -473,11 +651,11 @@ function renderDetail(selectedRestaurant) {
   `;
 }
 
-function getNeighborhoodCenter(neighborhoodId) {
-  return NEIGHBORHOOD_MAP_CENTERS[neighborhoodId] ?? NEIGHBORHOOD_MAP_CENTERS.seongsu;
-}
-
 function getRestaurantLatLng(restaurant, kakao, neighborhoodId) {
+  if (Number.isFinite(restaurant.lat) && Number.isFinite(restaurant.lng)) {
+    return new kakao.maps.LatLng(restaurant.lat, restaurant.lng);
+  }
+
   const center = getNeighborhoodCenter(neighborhoodId);
   const lat = center.lat + (50 - restaurant.y) * RESTAURANT_LAT_SPAN;
   const lng = center.lng + (restaurant.x - 50) * RESTAURANT_LNG_SPAN;
@@ -489,13 +667,17 @@ function buildInfoWindowContent(restaurant) {
   return `
     <div class="map-popover">
       <strong>${escapeHtml(restaurant.name)}</strong>
-      <div>${escapeHtml(restaurant.category)} · ${escapeHtml(currency(restaurant.avgMealPrice))}</div>
-      <div class="map-popover-score">점수 ${escapeHtml(restaurant.score)}</div>
+      <div>${escapeHtml(restaurant.category || '-')} · ${escapeHtml(getPlaceLocationLabel(restaurant))}</div>
+      <div class="map-popover-score">점수 ${escapeHtml(getPlaceBadge(restaurant))}</div>
     </div>
   `;
 }
 
 function loadKakaoMapsSdk() {
+  if (!KAKAO_JS_KEY) {
+    return Promise.reject(new Error('Kakao JS key is missing from runtime config'));
+  }
+
   if (window.kakao?.maps) {
     return Promise.resolve(window.kakao);
   }

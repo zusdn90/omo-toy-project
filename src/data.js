@@ -2,17 +2,35 @@ export const neighborhoods = [
   {
     id: 'seongsu',
     name: '성수',
-    vibe: '공방과 팝업 사이에 숨어 있는 점심·저녁 후보를 빠르게 훑기 좋은 동네'
+    vibe: '공방과 팝업 사이에 숨어 있는 점심·저녁 후보를 빠르게 훑기 좋은 동네',
+    mapCenter: { lat: 37.5442, lng: 127.0558, level: 4 },
+    kakaoSearch: {
+      query: '성수동 맛집',
+      radius: 1500,
+      sort: 'distance'
+    }
   },
   {
     id: 'mangwon',
     name: '망원',
-    vibe: '시장권 생활 밀착형 맛집과 혼밥·간단한 술안주 후보가 많은 동네'
+    vibe: '시장권 생활 밀착형 맛집과 혼밥·간단한 술안주 후보가 많은 동네',
+    mapCenter: { lat: 37.5567, lng: 126.9105, level: 4 },
+    kakaoSearch: {
+      query: '망원동 맛집',
+      radius: 1500,
+      sort: 'distance'
+    }
   },
   {
     id: 'euljiro',
     name: '을지로',
-    vibe: '노포와 힙한 가게가 섞여 있어 가성비 신호를 비교하기 좋은 동네'
+    vibe: '노포와 힙한 가게가 섞여 있어 가성비 신호를 비교하기 좋은 동네',
+    mapCenter: { lat: 37.5663, lng: 126.9924, level: 4 },
+    kakaoSearch: {
+      query: '을지로 맛집',
+      radius: 1500,
+      sort: 'distance'
+    }
   }
 ];
 
