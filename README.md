@@ -8,6 +8,7 @@
 - 동네 선택(성수/망원/을지로) 기반 후보 탐색
 - 가성비 점수(맛/가격/근거량/긍정비율) 기반 랭킹
 - 자동 Top 5 쇼트리스트
+- Kakao Map 마커 + 리스트 선택 동기화
 - 후보 탐색 리포트(압축률, 근거량, 점수 편차 등)
 - 로컬 API 제공 (Node 내장 HTTP)
 
@@ -38,3 +39,4 @@ npm run build
 ## 문서
 
 - 로컬 확장/운영 계약: [`docs/local-safe-ops.md`](docs/local-safe-ops.md)
+- 현재 Kakao Map 연동 범위: [`docs/kakao-map-integration.md`](docs/kakao-map-integration.md)

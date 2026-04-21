@@ -4,7 +4,7 @@
 
 ## 1) 목적
 
-외부 크롤러, 지도 SDK, SaaS 분석 도구 없이도 아래를 가능하게 만드는 것이 목표입니다.
+외부 크롤러나 SaaS 분석 도구 없이, 그리고 **지도는 Kakao Maps SDK를 표시 레이어로만 제한**한 상태에서 아래를 가능하게 만드는 것이 목표입니다.
 
 - seeded 데이터의 로컬 API 소비
 - 후보 탐색 시간을 줄였는지 확인할 수 있는 로컬 계측
@@ -21,8 +21,8 @@
 
 ### Dependency guardrails
 
-- Node 내장 모듈만 사용한다.
-- 외부 네트워크 요청을 보내지 않는다.
+- 로컬 서버/API 구현은 Node 내장 모듈만 사용한다.
+- 외부 네트워크 의존은 Kakao Maps JS SDK 로드로 한정하고, place 검색·분석·수집 용도로 넓히지 않는다.
 - 런타임 저장소는 선택적 로컬 파일 또는 메모리 수준에 한정한다.
 - 계측 데이터는 개인 로컬 워크플로 분석용이며, 외부 전송을 금지한다.
 
@@ -160,8 +160,9 @@ npm run build
 현재 베이스라인 정적 MVP를 기준으로 보면:
 
 - `src/domain.js`는 점수 계산과 Top 5 파생 로직을 중앙화하고 있어 API 레이어 재사용에 적합함
-- `scripts/lint.mjs`, `tests/domain.test.js`, `scripts/build.mjs`가 이미 경량 검증 루프를 제공함
-- 아직 local server/API 및 measurable report contract는 명시적 파일/엔드포인트로 드러나지 않으므로, 이번 backlog에서는 **문서-구현-검증 이름 일치**가 특히 중요함
+- `src/main.js`는 seeded `x`/`y` 좌표를 neighborhood 중심점 기준으로 Kakao Map 마커에 투영하며, marker/list selection state를 공유함
+- `scripts/lint.mjs`, `tests/domain.test.js`, `tests/server.test.js`, `scripts/build.mjs`가 이미 경량 검증 루프를 제공함
+- Kakao Map 연동은 이미 들어와 있지만 place search/geocoding은 아직 없으므로, 이번 backlog에서는 **문서-구현-검증 이름 일치**와 **현재 scope 고정**이 특히 중요함
 
 ## 8) Do / don't
 
