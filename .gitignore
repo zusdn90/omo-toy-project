@@ -1,4 +1,10 @@
 .env
 .omx/
+.next/
+tsconfig.tsbuildinfo
+node_modules/
 dist/
+.playwright/
+playwright-report/
+test-results/
 .sisyphus/

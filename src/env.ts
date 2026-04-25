@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 let loaded = false;
 
-function parseEnvFile(source) {
+function parseEnvFile(source: string) {
   for (const rawLine of source.split(/\r?\n/)) {
     const line = rawLine.trim();
 
@@ -38,6 +38,10 @@ function parseEnvFile(source) {
   }
 }
 
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return typeof error === 'object' && error !== null && 'code' in error;
+}
+
 export function loadDotEnv({ cwd = projectRoot } = {}) {
   if (loaded) {
     return;
@@ -48,8 +52,8 @@ export function loadDotEnv({ cwd = projectRoot } = {}) {
   try {
     const source = readFileSync(envPath, 'utf8');
     parseEnvFile(source);
-  } catch (error) {
-    if (error?.code !== 'ENOENT') {
+  } catch (error: unknown) {
+    if (!isNodeError(error) || error.code !== 'ENOENT') {
       throw error;
     }
   }

@@ -1,11 +1,34 @@
+import type { CandidateReport, EnrichedRestaurant, Neighborhood, NeighborhoodSnapshot, NeighborhoodView } from './lib/types';
+import { SCORE_WEIGHTS } from './lib/scoring';
+
 const KAKAO_LOCAL_BASE_URL = 'https://dapi.kakao.com/v2/local';
 
-function toNumber(value) {
+type KakaoSearchDocument = {
+  id: string;
+  place_name: string;
+  category_name?: string;
+  category_group_name?: string;
+  address_name?: string;
+  road_address_name?: string;
+  phone?: string;
+  place_url?: string;
+  x?: string | number;
+  y?: string | number;
+  distance?: string | number;
+};
+
+type KakaoKeywordSearchPayload = {
+  documents?: KakaoSearchDocument[];
+};
+
+type KakaoNeighborhoodSnapshot = NeighborhoodSnapshot | null;
+
+function toNumber(value: string | number | null | undefined) {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function formatDistance(distanceMeters) {
+function formatDistance(distanceMeters: number | null | undefined) {
   if (distanceMeters == null) {
     return '거리 정보 없음';
   }
@@ -13,7 +36,7 @@ function formatDistance(distanceMeters) {
   return `${distanceMeters.toLocaleString('ko-KR')}m`;
 }
 
-function averageBy(items, selector) {
+function averageBy<T>(items: T[], selector: (item: T) => number) {
   if (items.length === 0) {
     return 0;
   }
@@ -22,13 +45,13 @@ function averageBy(items, selector) {
   return Number((total / items.length).toFixed(1));
 }
 
-function buildScore(distanceMeters, index) {
+function buildScore(distanceMeters: number | null | undefined, index: number) {
   const distancePenalty = distanceMeters == null ? 0 : Math.min(distanceMeters / 45, 28);
   const rankPenalty = Math.min(index * 3.5, 24.5);
   return Number(Math.max(0, 100 - distancePenalty - rankPenalty).toFixed(1));
 }
 
-function normalizePlace(place, index, neighborhood) {
+function normalizePlace(place: KakaoSearchDocument, index: number, neighborhood: Neighborhood): EnrichedRestaurant {
   const lat = toNumber(place.y);
   const lng = toNumber(place.x);
   const distanceMeters = toNumber(place.distance);
@@ -41,9 +64,9 @@ function normalizePlace(place, index, neighborhood) {
     roadAddressName: place.road_address_name || '',
     phone: place.phone || '',
     placeUrl: place.place_url || '',
-    lat,
-    lng,
-    distanceMeters,
+    lat: lat ?? undefined,
+    lng: lng ?? undefined,
+    distanceMeters: distanceMeters ?? undefined,
     score: buildScore(distanceMeters, index),
     reasons: [
       `${formatDistance(distanceMeters)} 안에서 검색된 Kakao 장소예요.`,
@@ -56,8 +79,8 @@ function normalizePlace(place, index, neighborhood) {
   };
 }
 
-function buildKakaoNeighborhoodView(neighborhood, documents) {
-  const ranked = documents.map((document, index) => normalizePlace(document, index, neighborhood));
+function buildKakaoNeighborhoodView(neighborhood: Neighborhood, documents: KakaoSearchDocument[]): NeighborhoodView {
+  const ranked: EnrichedRestaurant[] = documents.map((document, index) => normalizePlace(document, index, neighborhood));
   const top5 = ranked.slice(0, 5);
 
   return {
@@ -71,6 +94,8 @@ function buildKakaoNeighborhoodView(neighborhood, documents) {
       totalRestaurants: ranked.length,
       averageScore: ranked.length > 0 ? averageBy(ranked, (item) => item.score).toFixed(1) : '0.0',
       averageDistance: averageBy(ranked, (item) => item.distanceMeters ?? 0),
+      bestEvidenceName: ranked[0]?.name ?? '-',
+      lowestPriceLabel: '-',
       nearestPlaceName: ranked[0]?.name ?? '-',
       nearestPlaceLabel: ranked[0]
         ? `${ranked[0].name} · ${formatDistance(ranked[0].distanceMeters)}`
@@ -82,26 +107,33 @@ function buildKakaoNeighborhoodView(neighborhood, documents) {
   };
 }
 
-function buildKakaoCandidateReport(view) {
+function buildKakaoCandidateReport(view: NeighborhoodView): CandidateReport {
   const ranked = view.ranked;
   const topCandidate = ranked[0] ?? null;
   const averageDistance = averageBy(ranked, (item) => item.distanceMeters ?? 0);
 
   return {
     neighborhood: view.neighborhood,
+    source: 'kakao',
     summary: {
       candidateCount: ranked.length,
       shortlistCount: view.top5.length,
       averageDistance,
-      nearestDistance: topCandidate?.distanceMeters ?? null,
+      nearestDistance: topCandidate?.distanceMeters ?? undefined,
       averageScore: ranked.length > 0 ? averageBy(ranked, (item) => item.score) : 0
     },
     instrumentation: {
       source: 'kakao-local-api',
       query: view.summary.searchQuery,
-      radiusMeters: view.summary.searchRadiusMeters,
+      radiusMeters: view.summary.searchRadiusMeters ?? undefined,
       sort: view.summary.searchSort,
-      strategy: 'Kakao Local keyword search 결과를 거리 기준으로 정렬한 뒤 상위 후보를 지도와 리스트에 동기화합니다.'
+      weights: SCORE_WEIGHTS,
+      strategy: 'Kakao Local keyword search 결과를 거리 기준으로 정렬한 뒤 상위 후보를 지도와 리스트에 동기화합니다.',
+      thresholds: {
+        affordableMealPrice: 10000,
+        evidenceStrong: 70,
+        highConfidenceRatio: 0.91
+      }
     },
     shortlist: view.top5.map((place, index) => ({
       rank: index + 1,
@@ -112,7 +144,8 @@ function buildKakaoCandidateReport(view) {
       addressName: place.addressName,
       roadAddressName: place.roadAddressName,
       distanceMeters: place.distanceMeters,
-      placeUrl: place.placeUrl
+      placeUrl: place.placeUrl,
+      primaryReason: place.reasons[0] ?? `거리 ${formatDistance(place.distanceMeters)} 기준 후보예요.`
     })),
     candidates: ranked.map((place, index) => ({
       rank: index + 1,
@@ -124,7 +157,13 @@ function buildKakaoCandidateReport(view) {
       roadAddressName: place.roadAddressName,
       phone: place.phone,
       placeUrl: place.placeUrl,
-      distanceMeters: place.distanceMeters
+      distanceMeters: place.distanceMeters,
+      signals: {
+        affordable: false,
+        evidenceStrong: false,
+        highConfidence: false
+      },
+      primaryReason: place.reasons[0] ?? `거리 ${formatDistance(place.distanceMeters)} 기준 후보예요.`
     })),
     narrative: topCandidate
       ? `${topCandidate.name}을(를) 중심으로 Kakao 장소 검색 결과 ${ranked.length}개를 확보했습니다.`
@@ -132,7 +171,15 @@ function buildKakaoCandidateReport(view) {
   };
 }
 
-async function fetchKakaoKeywordSearch({ apiKey, neighborhood, fetchImpl = fetch }) {
+async function fetchKakaoKeywordSearch({
+  apiKey,
+  neighborhood,
+  fetchImpl = fetch
+}: {
+  apiKey: string;
+  neighborhood: Neighborhood;
+  fetchImpl?: typeof fetch;
+}): Promise<KakaoSearchDocument[]> {
   const search = neighborhood.kakaoSearch;
   if (!search?.query) {
     return [];
@@ -155,47 +202,62 @@ async function fetchKakaoKeywordSearch({ apiKey, neighborhood, fetchImpl = fetch
     throw new Error(`Kakao Local API request failed: ${response.status} ${response.statusText}`.trim());
   }
 
-  const payload = await response.json();
+  const payload = (await response.json()) as KakaoKeywordSearchPayload;
   return payload.documents ?? [];
 }
 
-export function createKakaoNeighborhoodLoader({ apiKey, fetchImpl = fetch }) {
-  const cache = new Map();
+export function createKakaoNeighborhoodLoader({
+  apiKey,
+  fetchImpl = fetch
+}: {
+  apiKey?: string;
+  fetchImpl?: typeof fetch;
+}) {
+  const cache = new Map<string, NeighborhoodSnapshot>();
+  const inFlight = new Map<string, Promise<KakaoNeighborhoodSnapshot>>();
 
-  async function loadNeighborhoodSnapshot(neighborhood) {
-    if (!apiKey || !neighborhood?.kakaoSearch?.query) {
+  async function loadNeighborhoodSnapshot(neighborhood: Neighborhood): Promise<KakaoNeighborhoodSnapshot> {
+    if (!apiKey || !neighborhood.kakaoSearch?.query) {
       return null;
     }
 
-    if (!cache.has(neighborhood.id)) {
-      cache.set(
-        neighborhood.id,
-        (async () => {
-          try {
-            const documents = await fetchKakaoKeywordSearch({ apiKey, neighborhood, fetchImpl });
-            if (documents.length === 0) {
-              return null;
-            }
-
-            const view = buildKakaoNeighborhoodView(neighborhood, documents);
-            return {
-              view,
-              report: buildKakaoCandidateReport(view)
-            };
-          } catch (error) {
-            return {
-              error: error instanceof Error ? error.message : 'Kakao Local API를 불러오지 못했습니다.'
-            };
-          }
-        })()
-      );
+    const cachedSnapshot = cache.get(neighborhood.id);
+    if (cachedSnapshot) {
+      return cachedSnapshot;
     }
 
-    return cache.get(neighborhood.id);
+    const inFlightSnapshot = inFlight.get(neighborhood.id);
+    if (inFlightSnapshot) {
+      return inFlightSnapshot;
+    }
+
+    const request = (async () => {
+      try {
+        const documents = await fetchKakaoKeywordSearch({ apiKey, neighborhood, fetchImpl });
+        if (documents.length === 0) {
+          return null;
+        }
+
+        const view = buildKakaoNeighborhoodView(neighborhood, documents);
+        const snapshot = {
+          view,
+          report: buildKakaoCandidateReport(view)
+        };
+        cache.set(neighborhood.id, snapshot);
+        return snapshot;
+      } catch {
+        return null;
+      } finally {
+        inFlight.delete(neighborhood.id);
+      }
+    })();
+
+    inFlight.set(neighborhood.id, request);
+    return request;
   }
 
   return {
-    async loadNeighborhoodSnapshot(neighborhood) {
+    async loadNeighborhoodSnapshot(neighborhood: Neighborhood) {
       return loadNeighborhoodSnapshot(neighborhood);
     }
   };

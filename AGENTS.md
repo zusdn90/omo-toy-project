@@ -5,6 +5,7 @@ This repository contains a Kakao Map + local REST MVP. Follow these working rule
 ## Core workflow
 - Prefer small, reviewable diffs.
 - Keep behavior stable unless the task explicitly requires a change.
+- For future development work, follow TDD: write or update the relevant test code first, then implement the change to make the test pass.
 - Run the relevant verification before claiming completion:
   - `npm test`
   - `npm run lint`

@@ -1,21 +1,27 @@
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { basename, extname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
-import { buildCandidateReport, buildNeighborhoodView, neighborhoods } from './domain.js';
-import { loadDotEnv } from './env.js';
-import { createKakaoNeighborhoodLoader } from './kakao-local.js';
+import next from 'next';
+
+import { buildCandidateReport, buildNeighborhoodView, neighborhoods } from './domain';
+import { loadDotEnv } from './env';
+import { createKakaoNeighborhoodLoader } from './kakao-local';
+import type { Neighborhood, NeighborhoodSnapshot, NeighborhoodView } from './lib/types';
 
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
-const contentTypes = {
-  '.css': 'text/css; charset=utf-8',
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8'
+
+type Logger = {
+  error?: (...args: unknown[]) => void;
 };
 
-function sendJson(response, statusCode, payload) {
+type SnapshotResolver = {
+  getSnapshot(neighborhoodId: string): Promise<NeighborhoodSnapshot | null>;
+  getView(neighborhoodId: string): Promise<NeighborhoodView | null>;
+  getReport(neighborhoodId: string): Promise<NeighborhoodSnapshot['report'] | null>;
+};
+
+function sendJson(response: ServerResponse<IncomingMessage>, statusCode: number, payload: unknown) {
   response.writeHead(statusCode, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store'
@@ -23,7 +29,7 @@ function sendJson(response, statusCode, payload) {
   response.end(JSON.stringify(payload));
 }
 
-function sendJavaScript(response, payload) {
+function sendJavaScript(response: ServerResponse<IncomingMessage>, payload: string) {
   response.writeHead(200, {
     'content-type': 'application/javascript; charset=utf-8',
     'cache-control': 'no-store'
@@ -31,60 +37,61 @@ function sendJavaScript(response, payload) {
   response.end(payload);
 }
 
-function getStaticPath(rootDir, pathname) {
-  const requestPath = pathname === '/' ? '/index.html' : pathname;
-  const absolutePath = resolve(rootDir, `.${requestPath}`);
-  const relPath = relative(rootDir, absolutePath);
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return typeof error === 'object' && error !== null && 'code' in error;
+}
 
-  if (relPath.startsWith('..') || relPath === '' || basename(absolutePath).startsWith('.')) {
-    return null;
+function createNeighborhoodSnapshotResolver({
+  kakaoLoader
+}: {
+  kakaoLoader?: {
+    loadNeighborhoodSnapshot(neighborhood: Neighborhood): Promise<NeighborhoodSnapshot | { error: string } | null>;
+  };
+} = {}): SnapshotResolver {
+  const snapshotCache = new Map<string, NeighborhoodSnapshot>();
+
+  function buildSeededSnapshot(neighborhoodId: string, fallbackReason?: string): NeighborhoodSnapshot {
+    return {
+      view: buildNeighborhoodView(neighborhoodId, fallbackReason),
+      report: buildCandidateReport(neighborhoodId, fallbackReason)
+    };
   }
 
-  return absolutePath;
-}
-
-function getContentType(filePath) {
-  return contentTypes[extname(filePath)] ?? 'application/octet-stream';
-}
-
-function createNeighborhoodSnapshotResolver({ kakaoLoader } = {}) {
-  const snapshotCache = new Map();
-
-  async function resolveNeighborhoodSnapshot(neighborhoodId) {
+  async function resolveNeighborhoodSnapshot(neighborhoodId: string): Promise<NeighborhoodSnapshot | null> {
     const neighborhood = neighborhoods.find((item) => item.id === neighborhoodId);
     if (!neighborhood) {
       return null;
     }
 
     if (snapshotCache.has(neighborhoodId)) {
-      return snapshotCache.get(neighborhoodId);
+      return snapshotCache.get(neighborhoodId) ?? null;
     }
 
     const kakaoSnapshot = await kakaoLoader?.loadNeighborhoodSnapshot(neighborhood);
-    if (kakaoSnapshot?.view && kakaoSnapshot?.report) {
+    if (kakaoSnapshot && 'view' in kakaoSnapshot && 'report' in kakaoSnapshot) {
       snapshotCache.set(neighborhoodId, kakaoSnapshot);
       return kakaoSnapshot;
     }
 
-    return {
-      view: buildNeighborhoodView(neighborhoodId),
-      report: buildCandidateReport(neighborhoodId)
-    };
+    return buildSeededSnapshot(neighborhoodId, 'Kakao snapshot unavailable');
   }
 
   return {
-    async getView(neighborhoodId) {
+    async getSnapshot(neighborhoodId: string) {
+      return resolveNeighborhoodSnapshot(neighborhoodId);
+    },
+    async getView(neighborhoodId: string) {
       const snapshot = await resolveNeighborhoodSnapshot(neighborhoodId);
       return snapshot?.view ?? null;
     },
-    async getReport(neighborhoodId) {
+    async getReport(neighborhoodId: string) {
       const snapshot = await resolveNeighborhoodSnapshot(neighborhoodId);
       return snapshot?.report ?? null;
     }
   };
 }
 
-function handleApiRequest(response, pathname, snapshotResolver) {
+function handleApiRequest(response: ServerResponse<IncomingMessage>, pathname: string, snapshotResolver: SnapshotResolver) {
   if (pathname === '/api/health') {
     sendJson(response, 200, { ok: true });
     return true;
@@ -108,8 +115,28 @@ function handleApiRequest(response, pathname, snapshotResolver) {
 
         sendJson(response, 200, view);
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : 'Failed to load neighborhood view';
+        sendJson(response, 500, { error: message });
+      });
+    return true;
+  }
+
+  const snapshotMatch = pathname.match(/^\/api\/neighborhoods\/([^/]+)\/snapshot$/);
+  if (snapshotMatch) {
+    const neighborhoodId = decodeURIComponent(snapshotMatch[1]);
+    snapshotResolver
+      .getSnapshot(neighborhoodId)
+      .then((snapshot) => {
+        if (!snapshot) {
+          sendJson(response, 404, { error: 'Not found' });
+          return;
+        }
+
+        sendJson(response, 200, snapshot);
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Failed to load neighborhood snapshot';
         sendJson(response, 500, { error: message });
       });
     return true;
@@ -128,7 +155,7 @@ function handleApiRequest(response, pathname, snapshotResolver) {
 
         sendJson(response, 200, report);
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : 'Failed to load neighborhood report';
         sendJson(response, 500, { error: message });
       });
@@ -143,7 +170,15 @@ export function createLocalServer({
   logger = console,
   fetchImpl = globalThis.fetch,
   kakaoJsKey,
-  kakaoRestApiKey
+  kakaoRestApiKey,
+  dev = false
+}: {
+  rootDir?: string;
+  logger?: Logger;
+  fetchImpl?: typeof fetch;
+  kakaoJsKey?: string;
+  kakaoRestApiKey?: string;
+  dev?: boolean;
 } = {}) {
   loadDotEnv({ cwd: rootDir });
   const resolvedKakaoJsKey = kakaoJsKey ?? process.env.KAKAO_JS_KEY ?? '';
@@ -153,16 +188,21 @@ export function createLocalServer({
     fetchImpl
   });
   const snapshotResolver = createNeighborhoodSnapshotResolver({ kakaoLoader });
+  const nextApp = next({ dev, dir: rootDir });
+  const nextHandle = nextApp.getRequestHandler();
+  const preparePromise = nextApp.prepare();
 
   function buildRuntimeConfigScript() {
     return `window.__OMO_APP_CONFIG__ = Object.freeze(${JSON.stringify({ kakaoJsKey: resolvedKakaoJsKey })});\n`;
   }
 
-  return createServer(async (request, response) => {
+  const server = createServer(async (request, response) => {
     const method = request.method ?? 'GET';
     const requestUrl = new URL(request.url ?? '/', 'http://127.0.0.1');
 
     try {
+      await preparePromise;
+
       if (requestUrl.pathname === '/runtime-config.js') {
         if (method !== 'GET' && method !== 'HEAD') {
           response.writeHead(405, { 'content-type': 'text/plain; charset=utf-8' });
@@ -194,18 +234,9 @@ export function createLocalServer({
         return;
       }
 
-      const filePath = getStaticPath(rootDir, requestUrl.pathname);
-      if (!filePath) {
-        response.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
-        response.end('Forbidden');
-        return;
-      }
-
-      const fileContents = await readFile(filePath);
-      response.writeHead(200, { 'content-type': getContentType(filePath) });
-      response.end(method === 'HEAD' ? undefined : fileContents);
-    } catch (error) {
-      if (error?.code === 'ENOENT') {
+      await nextHandle(request, response);
+    } catch (error: unknown) {
+      if (isNodeError(error) && error.code === 'ENOENT') {
         response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
         response.end('Not found');
         return;
@@ -216,20 +247,37 @@ export function createLocalServer({
       response.end('Internal server error');
     }
   });
+
+  server.on('close', () => {
+    void nextApp.close?.();
+  });
+
+  return server;
 }
 
-export function startLocalServer({ port = 4173, host = '127.0.0.1', logger = console } = {}) {
-  const server = createLocalServer({ logger });
-
-  return new Promise((resolvePromise, rejectPromise) => {
-    server.once('error', rejectPromise);
-    server.listen(port, host, () => {
-      resolvePromise({
-        host,
-        port,
-        server,
-        url: `http://${host}:${port}`
-      });
-    });
+export async function startLocalServer(options: {
+  rootDir?: string;
+  logger?: Logger;
+  fetchImpl?: typeof fetch;
+  kakaoJsKey?: string;
+  kakaoRestApiKey?: string;
+  dev?: boolean;
+  port?: number;
+  host?: string;
+} = {}) {
+  const server = createLocalServer({
+    ...options,
+    dev: options.dev ?? process.env.NODE_ENV !== 'production'
   });
+  const port = options.port ?? Number(process.env.PORT ?? '4173');
+  const host = options.host ?? process.env.HOST ?? '0.0.0.0';
+
+  await new Promise<void>((resolve) => {
+    server.listen(port, host, resolve);
+  });
+
+  return {
+    server,
+    url: `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`
+  };
 }

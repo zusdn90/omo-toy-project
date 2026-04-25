@@ -14,8 +14,8 @@
 
 ### Data flow
 
-1. `src/data.js`의 seeded dataset이 단일 source of truth 역할을 한다.
-2. 도메인 계산(점수, Top 5, 추천 이유, neighborhood summary)은 `src/domain.js`에 유지한다.
+1. `src/data.ts`의 seeded dataset이 단일 source of truth 역할을 한다.
+2. 도메인 계산(점수, Top 5, 추천 이유, neighborhood summary)은 `src/domain.ts`에 유지한다.
 3. 로컬 서버는 위 도메인 계산 결과를 JSON으로 노출한다.
 4. UI는 직접 계산 또는 API 소비 중 어느 경로를 쓰더라도 **동일한 파생 결과**를 보여줘야 한다.
 
@@ -49,42 +49,63 @@
 }
 ```
 
-### `GET /api/neighborhood-view?neighborhoodId=<id>`
+### `GET /api/neighborhoods/:id/snapshot`
 
 반환 목적:
-- Top 5, ranking, summary, selected fallback 등 UI 핵심 파생 데이터를 한 번에 제공
+- Top 5, ranking, summary, selected fallback, candidate report를 한 번에 제공
 
 예상 응답 shape:
 
 ```json
 {
-  "neighborhood": { "id": "seongsu", "name": "성수", "vibe": "..." },
-  "ranked": [],
-  "top5": [],
-  "selected": null,
-  "summary": {
-    "totalRestaurants": 0,
-    "averageScore": "0.0",
-    "bestEvidenceName": "-",
-    "lowestPriceLabel": "-"
+  "view": {
+    "neighborhood": { "id": "seongsu", "name": "성수", "vibe": "..." },
+    "source": "seeded",
+    "ranked": [],
+    "top5": [],
+    "selected": null,
+    "summary": {
+      "totalRestaurants": 0,
+      "averageScore": "0.0",
+      "bestEvidenceName": "-",
+      "lowestPriceLabel": "-"
+    }
+  },
+  "report": {
+    "source": "seeded",
+    "summary": {
+      "candidateCount": 0,
+      "shortlistCount": 0
+    },
+    "instrumentation": {
+      "source": "seeded",
+      "weights": {
+        "taste": 0.34,
+        "affordability": 0.26,
+        "evidence": 0.25,
+        "sentiment": 0.15
+      },
+      "strategy": "...",
+      "thresholds": {
+        "affordableMealPrice": 10000,
+        "evidenceStrong": 70,
+        "highConfidenceRatio": 0.91
+      }
+    },
+    "shortlist": [],
+    "candidates": [],
+    "narrative": "..."
   }
 }
 ```
 
-### `GET /api/report`
+### `GET /api/neighborhoods/:id/view`
 
-반환 목적:
-- 현재 세션의 후보 탐색 활동을 사람이 읽기 쉬운 JSON 리포트로 확인
+호환성을 위해 유지되는 단일 뷰 엔드포인트다. 내부적으로는 `/snapshot`의 `view`와 같은 산출물을 반환한다.
 
-예상 포함 필드:
+### `GET /api/neighborhoods/:id/report`
 
-- `sessionStartedAt`
-- `neighborhoodSwitchCount`
-- `candidateSelectionCount`
-- `selectedRestaurantIds`
-- `timeToFirstSelectionMs`
-- `activeNeighborhoodId`
-- `generatedAt`
+호환성을 위해 유지되는 단일 리포트 엔드포인트다. 내부적으로는 `/snapshot`의 `report`와 같은 산출물을 반환한다.
 
 ## 4) Instrumentation/reporting guidance
 
@@ -151,17 +172,17 @@ npm run build
 추가 확인 권장:
 
 1. 로컬 서버 실행 후 `GET /api/neighborhoods` 확인
-2. `GET /api/neighborhood-view?neighborhoodId=seongsu` 확인
-3. 후보 선택/동네 전환 후 `GET /api/report` 또는 동등 산출물 확인
+2. `GET /api/neighborhoods/seongsu/snapshot` 확인
+3. 후보 선택/동네 전환 후 `GET /api/neighborhoods/seongsu/snapshot` 또는 동등 산출물 확인
 4. README와 실제 실행 절차/엔드포인트 이름이 일치하는지 확인
 
 ## 7) Review outcome for the current baseline
 
 현재 베이스라인 정적 MVP를 기준으로 보면:
 
-- `src/domain.js`는 점수 계산과 Top 5 파생 로직을 중앙화하고 있어 API 레이어 재사용에 적합함
-- `src/main.js`는 seeded `x`/`y` 좌표를 neighborhood 중심점 기준으로 Kakao Map 마커에 투영하며, marker/list selection state를 공유함
-- `scripts/lint.mjs`, `tests/domain.test.js`, `tests/server.test.js`, `scripts/build.mjs`가 이미 경량 검증 루프를 제공함
+- `src/domain.ts`는 점수 계산과 Top 5 파생 로직을 중앙화하고 있어 API 레이어 재사용에 적합함
+- `src/components/neighborhood-explorer.tsx`와 `src/components/kakao-map-panel.tsx`가 seeded `x`/`y` 좌표를 neighborhood 중심점 기준으로 Kakao Map 마커에 투영하며, marker/list selection state를 공유함
+- `scripts/lint.ts`, `tests/domain.test.ts`, `tests/server.test.ts`, `scripts/build.ts`가 이미 경량 검증 루프를 제공함
 - Kakao Map 연동은 이미 들어와 있지만 place search/geocoding은 아직 없으므로, 이번 backlog에서는 **문서-구현-검증 이름 일치**와 **현재 scope 고정**이 특히 중요함
 
 ## 8) Do / don't

@@ -1,8 +1,8 @@
 # omo-toy-project
 
 동네 가성비 맛집을 **지도 + 랭킹 + 자동 Top 5 추천**으로 보여주는 개인용 MVP입니다.  
-외부 의존성 없이 로컬에서 동작하도록, 시드 데이터 기반 UI와 로컬 API 레이어를 함께 제공합니다.
-현재는 Kakao Maps JS SDK와 Kakao Local REST API를 연결할 수 있도록 환경변수 기반 설정도 지원합니다.
+현재 구현은 **React + Next.js + TypeScript** 기반이며, **shadcn/ui + Tailwind CSS**로 UI를 구성합니다.
+시드 데이터 기반 UI와 로컬 API 레이어를 함께 제공하며, Kakao Maps JS SDK와 Kakao Local REST API를 환경변수 기반으로 연결할 수 있습니다.
 
 ## 주요 기능
 
@@ -32,23 +32,29 @@ cp .env.example .env
 npm run dev
 ```
 
-기본 주소: `http://127.0.0.1:4173`
+기본 주소: `http://localhost:4173`
+
+필요하면 `HOST=127.0.0.1 npm run dev` 또는 `HOST=localhost npm run dev`처럼 Kakao JS SDK에 등록한 정확한 로컬 origin으로 맞추세요.
 
 ## 로컬 API 엔드포인트
 
 - `GET /api/health`
 - `GET /api/neighborhoods`
-- `GET /api/neighborhoods/:id/view`
-- `GET /api/neighborhoods/:id/report`
+- `GET /api/neighborhoods/:id/snapshot`
+- `GET /api/neighborhoods/:id/view` / `GET /api/neighborhoods/:id/report` (compatibility)
+- `GET /runtime-config.js`
 
 ## 검증
 
 ```bash
 npm run typecheck
 npm test
+npm run test:e2e
 npm run lint
 npm run build
 ```
+
+브라우저 e2e는 Playwright Chromium이 필요합니다. 처음 실행 전 `npx playwright install chromium`를 한 번 실행하세요.
 
 ## 문서
 

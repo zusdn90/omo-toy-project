@@ -1,33 +1,36 @@
-import { neighborhoods, restaurants } from './data.js';
+import { neighborhoods, restaurants } from './data';
+import { SCORE_WEIGHTS } from './lib/scoring';
+import type {
+  CandidateReport,
+  EnrichedRestaurant,
+  Neighborhood,
+  NeighborhoodView,
+  SeedRestaurant
+} from './lib/types';
 
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const MIN_PRICE = 7000;
 const PRICE_RANGE = 9000;
 const MAX_SCORE = 100;
-const SCORE_WEIGHTS = Object.freeze({
-  taste: 0.34,
-  affordability: 0.26,
-  evidence: 0.25,
-  sentiment: 0.15
-});
+type RankedSeedRestaurant = SeedRestaurant & EnrichedRestaurant;
 
-function getAffordabilityScore(restaurant) {
+function getAffordabilityScore(restaurant: SeedRestaurant) {
   return clamp(MAX_SCORE - ((restaurant.avgMealPrice - MIN_PRICE) / PRICE_RANGE) * MAX_SCORE, 0, MAX_SCORE);
 }
 
-function getTasteScore(restaurant) {
+function getTasteScore(restaurant: SeedRestaurant) {
   return clamp(restaurant.tasteScore * 10, 0, MAX_SCORE);
 }
 
-function getEvidenceScore(restaurant) {
+function getEvidenceScore(restaurant: SeedRestaurant) {
   return clamp(restaurant.evidenceCount * 0.9 + restaurant.blogMentions * 1.4, 0, MAX_SCORE);
 }
 
-function getSentimentScore(restaurant) {
+function getSentimentScore(restaurant: SeedRestaurant) {
   return clamp(restaurant.positiveReviewRatio * MAX_SCORE, 0, MAX_SCORE);
 }
 
-function formatAverageScore(ranked) {
+function formatAverageScore(ranked: Array<{ score: number }>) {
   if (ranked.length === 0) {
     return '0.0';
   }
@@ -36,21 +39,21 @@ function formatAverageScore(ranked) {
   return (totalScore / ranked.length).toFixed(1);
 }
 
-function formatPrice(value) {
+function formatPrice(value: number) {
   return `${value.toLocaleString('ko-KR')}원`;
 }
 
-function pickBy(ranked, comparator) {
+function pickBy<T>(ranked: T[], comparator: (candidate: T, current: T) => boolean) {
   return ranked.reduce((current, candidate) => {
     if (!current || comparator(candidate, current)) {
       return candidate;
     }
 
     return current;
-  }, null);
+  }, null as T | null);
 }
 
-function averageBy(items, selector) {
+function averageBy<T>(items: T[], selector: (item: T) => number) {
   if (items.length === 0) {
     return 0;
   }
@@ -59,7 +62,7 @@ function averageBy(items, selector) {
   return Number((total / items.length).toFixed(1));
 }
 
-export function calculateValueScore(restaurant) {
+export function calculateValueScore(restaurant: SeedRestaurant) {
   const affordability = getAffordabilityScore(restaurant);
   const taste = getTasteScore(restaurant);
   const evidence = getEvidenceScore(restaurant);
@@ -74,8 +77,8 @@ export function calculateValueScore(restaurant) {
   return Number(weightedScore.toFixed(1));
 }
 
-export function buildReasons(restaurant) {
-  const reasons = [];
+export function buildReasons(restaurant: SeedRestaurant) {
+  const reasons: string[] = [];
   const affordability = getAffordabilityScore(restaurant);
   const evidence = getEvidenceScore(restaurant);
 
@@ -104,7 +107,7 @@ export function buildReasons(restaurant) {
     : ['핵심 지표는 중간 수준이지만 균형형 후보로 살펴볼 가치가 있어요.'];
 }
 
-export function enrichRestaurant(restaurant) {
+export function enrichRestaurant(restaurant: SeedRestaurant): RankedSeedRestaurant {
   return {
     ...restaurant,
     score: calculateValueScore(restaurant),
@@ -112,13 +115,13 @@ export function enrichRestaurant(restaurant) {
   };
 }
 
-export function getNeighborhoodById(neighborhoodId) {
+export function getNeighborhoodById(neighborhoodId: string): Neighborhood | null {
   return neighborhoods.find((item) => item.id === neighborhoodId) ?? null;
 }
 
-export function buildNeighborhoodView(neighborhoodId) {
+export function buildNeighborhoodView(neighborhoodId: string, fallbackReason?: string): NeighborhoodView {
   const neighborhood = getNeighborhoodById(neighborhoodId);
-  const ranked = restaurants
+  const ranked: RankedSeedRestaurant[] = restaurants
     .filter((restaurant) => restaurant.neighborhoodId === neighborhoodId)
     .map(enrichRestaurant)
     .sort((left, right) => right.score - left.score || right.evidenceCount - left.evidenceCount);
@@ -129,6 +132,8 @@ export function buildNeighborhoodView(neighborhoodId) {
 
   return {
     neighborhood,
+    source: 'seeded',
+    fallbackReason,
     ranked,
     top5,
     selected: ranked[0] ?? null,
@@ -141,9 +146,10 @@ export function buildNeighborhoodView(neighborhoodId) {
   };
 }
 
-export function buildCandidateReport(neighborhoodId) {
-  const view = buildNeighborhoodView(neighborhoodId);
-  const ranked = view.ranked;
+export function buildCandidateReport(neighborhoodId: string, fallbackReason?: string): CandidateReport {
+  const view = buildNeighborhoodView(neighborhoodId, fallbackReason);
+  const ranked = view.ranked as RankedSeedRestaurant[];
+  const top5 = ranked.slice(0, 5);
   const affordableCount = ranked.filter((restaurant) => restaurant.avgMealPrice <= 10000).length;
   const evidenceStrongCount = ranked.filter((restaurant) => restaurant.evidenceCount >= 70).length;
   const highConfidenceCount = ranked.filter((restaurant) => restaurant.positiveReviewRatio >= 0.91).length;
@@ -152,6 +158,8 @@ export function buildCandidateReport(neighborhoodId) {
 
   return {
     neighborhood: view.neighborhood,
+    source: 'seeded',
+    fallbackReason,
     summary: {
       candidateCount: ranked.length,
       shortlistCount: view.top5.length,
@@ -164,6 +172,7 @@ export function buildCandidateReport(neighborhoodId) {
         topCandidate && lowestCandidate ? Number((topCandidate.score - lowestCandidate.score).toFixed(1)) : 0
     },
     instrumentation: {
+      source: 'seeded',
       weights: SCORE_WEIGHTS,
       strategy: '공개 후기·블로그 근거량을 우선 확인한 뒤 가성비·만족도를 합산해 후보를 정렬합니다.',
       thresholds: {
@@ -172,14 +181,14 @@ export function buildCandidateReport(neighborhoodId) {
         highConfidenceRatio: 0.91
       }
     },
-    shortlist: view.top5.map((restaurant, index) => ({
+    shortlist: top5.map((restaurant, index) => ({
       rank: index + 1,
       id: restaurant.id,
       name: restaurant.name,
       score: restaurant.score,
       avgMealPrice: restaurant.avgMealPrice,
       evidenceCount: restaurant.evidenceCount,
-      primaryReason: restaurant.reasons[0]
+      primaryReason: restaurant.reasons[0] ?? '-'
     })),
     candidates: ranked.map((restaurant, index) => ({
       rank: index + 1,
@@ -195,10 +204,10 @@ export function buildCandidateReport(neighborhoodId) {
         evidenceStrong: restaurant.evidenceCount >= 70,
         highConfidence: restaurant.positiveReviewRatio >= 0.91
       },
-      primaryReason: restaurant.reasons[0]
+      primaryReason: restaurant.reasons[0] ?? '-'
     })),
     narrative: topCandidate
-      ? `${topCandidate.name}이(가) 최고 점수 ${topCandidate.score}로 선두이며, 상위 ${view.top5.length}개 후보를 바로 콘텐츠 검토 대상으로 좁혔습니다.`
+      ? `${topCandidate.name}이(가) 최고 점수 ${topCandidate.score}로 선두이며, 상위 ${top5.length}개 후보를 바로 콘텐츠 검토 대상으로 좁혔습니다.`
       : '시드된 후보가 없어 리포트를 생성할 수 없습니다.'
   };
 }

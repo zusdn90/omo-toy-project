@@ -1,3 +1,5 @@
+import type { Neighborhood, SeedRestaurant } from './lib/types';
+
 export const neighborhoods = [
   {
     id: 'seongsu',
@@ -32,7 +34,7 @@ export const neighborhoods = [
       sort: 'distance'
     }
   }
-];
+] satisfies Neighborhood[];
 
 export const restaurants = [
   {
@@ -305,4 +307,4 @@ export const restaurants = [
     specialties: ['김치찌개', '계란말이'],
     note: '전통적인 메뉴 조합에 대한 만족 댓글이 꾸준하다.'
   }
-];
+] satisfies SeedRestaurant[];
