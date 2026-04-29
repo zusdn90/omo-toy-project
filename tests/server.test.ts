@@ -159,6 +159,52 @@ test('local server can use VisitKorea chart data when Kakao data is unavailable'
   });
 });
 
+test('local server overlays Naver saved-list places onto the Seoul-wide snapshot map data', async (t) => {
+  const visitKoreaDbPath = await createTempDb(t);
+  const fetchImpl = async () => {
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      async json() {
+        return {
+          body: {
+            chartList: [
+              {
+                ENT_NM1: '서울 차트 맛집',
+                ROAD_NM_ADDR: '서울 중구 세종대로 110',
+                SE_CD: '한식',
+                LAT: '37.5665',
+                LON: '126.978'
+              }
+            ]
+          }
+        };
+      }
+    } as Response;
+  };
+
+  await withServer(async (baseUrl) => {
+    const snapshotResponse = await fetch(`${baseUrl}/api/neighborhoods/seoul-all/snapshot`);
+    const snapshotPayload = await snapshotResponse.json();
+    const naverMarkers = snapshotPayload.view.ranked.filter((restaurant: { source?: string }) => restaurant.source === 'naver');
+
+    assert.equal(snapshotResponse.status, 200);
+    assert.equal(snapshotPayload.view.source, 'visitkorea');
+    assert.equal(snapshotPayload.view.summary.totalRestaurants, 423);
+    assert.equal(naverMarkers.length, 422);
+    assert.equal(naverMarkers[0].name, '회다이');
+    assert.equal(snapshotPayload.report.summary.candidateCount, 423);
+    assert(snapshotPayload.report.narrative.includes('빨간 마커'));
+  }, {
+    fetchImpl,
+    kakaoJsKey: '',
+    kakaoRestApiKey: '',
+    visitKoreaDbPath,
+    visitKoreaEnabled: true
+  });
+});
+
 test('local server can return Kakao-backed neighborhood snapshots when REST key and fetch impl are present', async () => {
   const kakaoCalls: Array<{ input: string; headers?: { Authorization?: string } }> = [];
 

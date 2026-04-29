@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import next from 'next';
 
-import { buildCandidateReport, buildNeighborhoodView, neighborhoods } from './domain';
+import { buildCandidateReport, buildNeighborhoodView, neighborhoods, withNaverSharedSnapshot } from './domain';
 import { loadDotEnv } from './env';
 import { createKakaoNeighborhoodLoader } from './kakao-local';
 import type { Neighborhood, NeighborhoodSnapshot, NeighborhoodView } from './lib/types';
@@ -87,8 +87,9 @@ function createNeighborhoodSnapshotResolver({
     try {
       const visitKoreaSnapshot = await visitKoreaLoader?.loadNeighborhoodSnapshot(neighborhood);
       if (visitKoreaSnapshot) {
-        snapshotCache.set(neighborhoodId, visitKoreaSnapshot);
-        return visitKoreaSnapshot;
+        const snapshot = withNaverSharedSnapshot(neighborhoodId, visitKoreaSnapshot);
+        snapshotCache.set(neighborhoodId, snapshot);
+        return snapshot;
       }
     } catch {
       // Keep the app usable when the public VisitKorea chart endpoint is delayed.
@@ -97,14 +98,15 @@ function createNeighborhoodSnapshotResolver({
     try {
       const kakaoSnapshot = await kakaoLoader?.loadNeighborhoodSnapshot(neighborhood);
       if (kakaoSnapshot && 'view' in kakaoSnapshot && 'report' in kakaoSnapshot) {
-        snapshotCache.set(neighborhoodId, kakaoSnapshot);
-        return kakaoSnapshot;
+        const snapshot = withNaverSharedSnapshot(neighborhoodId, kakaoSnapshot);
+        snapshotCache.set(neighborhoodId, snapshot);
+        return snapshot;
       }
     } catch {
       // Fall through to seeded data when Kakao Local is unavailable or not configured.
     }
 
-    return buildSeededSnapshot(neighborhoodId, 'Live snapshot unavailable');
+    return withNaverSharedSnapshot(neighborhoodId, buildSeededSnapshot(neighborhoodId, 'Live snapshot unavailable'));
   }
 
   return {

@@ -79,6 +79,19 @@ test('buildNeighborhoodView stores every Naver shared-list place with coordinate
   assert.equal(typeof view.ranked[0].lng, 'number');
 });
 
+test('buildNeighborhoodView overlays Naver saved-list places onto the Seoul-wide map view', () => {
+  const view = buildNeighborhoodView('seoul-all');
+  const naverMarkers = view.ranked.filter((restaurant) => restaurant.source === 'naver');
+
+  assert.equal(view.summary.totalRestaurants, restaurants.length + 422);
+  assert.equal(view.summary.totalPlaces, restaurants.length + 422);
+  assert.equal(naverMarkers.length, 422);
+  assert(view.ranked.some((restaurant) => restaurant.source !== 'naver'));
+  assert.equal(naverMarkers[0].name, '회다이');
+  assert.equal(typeof naverMarkers[0].lat, 'number');
+  assert.equal(typeof naverMarkers[0].lng, 'number');
+});
+
 test('buildCandidateReport describes the Naver shared-list source', () => {
   const report = buildCandidateReport('naver-shared');
 
@@ -87,4 +100,12 @@ test('buildCandidateReport describes the Naver shared-list source', () => {
   assert.equal(report.instrumentation.source, 'naver-shared-list');
   assert.equal(report.instrumentation.query, 'https://naver.me/5SKab3tu');
   assert(report.narrative.includes('422곳'));
+});
+
+test('buildCandidateReport counts Naver saved-list places in the Seoul-wide candidate report', () => {
+  const report = buildCandidateReport('seoul-all');
+
+  assert.equal(report.summary.candidateCount, restaurants.length + 422);
+  assert.equal(report.summary.shortlistCount, 5);
+  assert(report.candidates.some((candidate) => candidate.id.startsWith('naver-')));
 });
