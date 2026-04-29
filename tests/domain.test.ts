@@ -64,3 +64,27 @@ test('buildCandidateReport exposes measurable shortlist instrumentation', () => 
   assert(report.shortlist[0].primaryReason.length > 0);
   assert(report.candidates.every((candidate) => typeof candidate.signals.affordable === 'boolean'));
 });
+
+
+test('buildNeighborhoodView stores every Naver shared-list place with coordinates', () => {
+  const view = buildNeighborhoodView('naver-shared');
+
+  assert.equal(view.source, 'naver');
+  assert.equal(view.summary.totalRestaurants, 422);
+  assert.equal(view.ranked.length, 422);
+  assert.equal(view.top5.length, 5);
+  assert.equal(view.selected?.name, '회다이');
+  assert.equal(view.ranked[0].source, 'naver');
+  assert.equal(typeof view.ranked[0].lat, 'number');
+  assert.equal(typeof view.ranked[0].lng, 'number');
+});
+
+test('buildCandidateReport describes the Naver shared-list source', () => {
+  const report = buildCandidateReport('naver-shared');
+
+  assert.equal(report.source, 'naver');
+  assert.equal(report.summary.candidateCount, 422);
+  assert.equal(report.instrumentation.source, 'naver-shared-list');
+  assert.equal(report.instrumentation.query, 'https://naver.me/5SKab3tu');
+  assert(report.narrative.includes('422곳'));
+});

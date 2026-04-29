@@ -1,4 +1,5 @@
 import { neighborhoods, restaurants } from './data';
+import { NAVER_SHARED_RESTAURANTS_SOURCE_URL, naverSharedRestaurants } from './naver-shared-restaurants';
 import { SCORE_WEIGHTS } from './lib/scoring';
 import type {
   CandidateReport,
@@ -119,10 +120,36 @@ export function getNeighborhoodById(neighborhoodId: string): Neighborhood | null
   return neighborhoods.find((item) => item.id === neighborhoodId) ?? null;
 }
 
+function buildNaverSharedNeighborhoodView(neighborhood: Neighborhood | null, fallbackReason?: string): NeighborhoodView {
+  const ranked = [...naverSharedRestaurants];
+  const top5 = ranked.slice(0, 5);
+
+  return {
+    neighborhood,
+    source: 'naver',
+    fallbackReason,
+    ranked,
+    top5,
+    selected: ranked[0] ?? null,
+    summary: {
+      totalRestaurants: ranked.length,
+      totalPlaces: ranked.length,
+      averageScore: formatAverageScore(ranked),
+      bestEvidenceName: ranked[0]?.name ?? '-',
+      lowestPriceLabel: '-',
+      searchQuery: '네이버 지도 저장목록 맛집'
+    }
+  };
+}
+
 export function buildNeighborhoodView(neighborhoodId: string, fallbackReason?: string): NeighborhoodView {
   const neighborhood = getNeighborhoodById(neighborhoodId);
+  if (neighborhoodId === 'naver-shared') {
+    return buildNaverSharedNeighborhoodView(neighborhood, fallbackReason);
+  }
+
   const ranked: RankedSeedRestaurant[] = restaurants
-    .filter((restaurant) => restaurant.neighborhoodId === neighborhoodId)
+    .filter((restaurant) => (neighborhoodId === 'seoul-all' ? true : restaurant.neighborhoodId === neighborhoodId))
     .map(enrichRestaurant)
     .sort((left, right) => right.score - left.score || right.evidenceCount - left.evidenceCount);
 
@@ -146,8 +173,72 @@ export function buildNeighborhoodView(neighborhoodId: string, fallbackReason?: s
   };
 }
 
+function buildSharedListCandidateReport(view: NeighborhoodView, fallbackReason?: string): CandidateReport {
+  const ranked = view.ranked;
+  const top5 = ranked.slice(0, 5);
+  const topCandidate = ranked[0] ?? null;
+  const lowestCandidate = ranked.at(-1) ?? null;
+
+  return {
+    neighborhood: view.neighborhood,
+    source: 'naver',
+    fallbackReason,
+    summary: {
+      candidateCount: ranked.length,
+      shortlistCount: top5.length,
+      evidenceStrongCount: ranked.filter((restaurant) => (restaurant.evidenceCount ?? 0) >= 70).length,
+      highConfidenceCount: ranked.filter((restaurant) => (restaurant.positiveReviewRatio ?? 0) >= 0.91).length,
+      averageEvidenceCount: averageBy(ranked, (restaurant) => restaurant.evidenceCount ?? 0),
+      averageScore: ranked.length ? Number(view.summary.averageScore) : 0,
+      scoreSpread:
+        topCandidate && lowestCandidate ? Number(((topCandidate.score ?? 0) - (lowestCandidate.score ?? 0)).toFixed(1)) : 0
+    },
+    instrumentation: {
+      source: 'naver-shared-list',
+      query: NAVER_SHARED_RESTAURANTS_SOURCE_URL,
+      weights: SCORE_WEIGHTS,
+      strategy: '공유받은 네이버 지도 저장목록을 앱 내부 정적 데이터로 보존하고 좌표 기반 지도 마커로 동기화합니다.',
+      thresholds: {
+        affordableMealPrice: 10000,
+        evidenceStrong: 70,
+        highConfidenceRatio: 0.91
+      }
+    },
+    shortlist: top5.map((restaurant, index) => ({
+      rank: index + 1,
+      id: restaurant.id,
+      name: restaurant.name,
+      score: restaurant.score,
+      evidenceCount: restaurant.evidenceCount,
+      primaryReason: restaurant.reasons[0] ?? '-'
+    })),
+    candidates: ranked.map((restaurant, index) => ({
+      rank: index + 1,
+      id: restaurant.id,
+      name: restaurant.name,
+      score: restaurant.score ?? 0,
+      evidenceCount: restaurant.evidenceCount,
+      blogMentions: restaurant.blogMentions,
+      positiveReviewRatio: restaurant.positiveReviewRatio,
+      signals: {
+        affordable: false,
+        evidenceStrong: (restaurant.evidenceCount ?? 0) >= 70,
+        highConfidence: (restaurant.positiveReviewRatio ?? 0) >= 0.91
+      },
+      primaryReason: restaurant.reasons[0] ?? '-'
+    })),
+    narrative: topCandidate
+      ? `${topCandidate.name}을(를) 포함해 네이버 지도 공유 저장목록 맛집 ${ranked.length}곳을 저장했습니다.`
+      : '네이버 지도 공유 저장목록 후보가 없어 리포트를 생성할 수 없습니다.'
+  };
+}
+
 export function buildCandidateReport(neighborhoodId: string, fallbackReason?: string): CandidateReport {
   const view = buildNeighborhoodView(neighborhoodId, fallbackReason);
+  if (view.source === 'naver') {
+    return buildSharedListCandidateReport(view, fallbackReason);
+  }
+
   const ranked = view.ranked as RankedSeedRestaurant[];
   const top5 = ranked.slice(0, 5);
   const affordableCount = ranked.filter((restaurant) => restaurant.avgMealPrice <= 10000).length;

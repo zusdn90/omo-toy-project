@@ -18,6 +18,12 @@ export interface KakaoMarker {
   setZIndex?(zIndex: number): void;
 }
 
+export interface KakaoMarkerImage {}
+
+export interface KakaoSize {}
+
+export interface KakaoPoint {}
+
 export interface KakaoInfoWindow {
   setContent(content: string): void;
   open(map: KakaoMapInstance, marker: KakaoMarker): void;
@@ -35,7 +41,10 @@ export interface KakaoMapsApi {
   Map: new (container: HTMLElement, options: KakaoMapOptions) => KakaoMapInstance;
   LatLng: new (lat: number, lng: number) => KakaoLatLng;
   LatLngBounds: new () => KakaoLatLngBounds;
-  Marker: new (options: { map: KakaoMapInstance; position: KakaoLatLng; title?: string; zIndex?: number }) => KakaoMarker;
+  Marker: new (options: { map: KakaoMapInstance; position: KakaoLatLng; title?: string; zIndex?: number; image?: KakaoMarkerImage }) => KakaoMarker;
+  MarkerImage: new (src: string, size: KakaoSize, options?: { offset?: KakaoPoint }) => KakaoMarkerImage;
+  Size: new (width: number, height: number) => KakaoSize;
+  Point: new (x: number, y: number) => KakaoPoint;
   InfoWindow: new (options: { zIndex?: number }) => KakaoInfoWindow;
   ZoomControl: new () => KakaoZoomControl;
   ControlPosition: {

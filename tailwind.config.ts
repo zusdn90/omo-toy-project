@@ -39,7 +39,7 @@ const config: Config = {
         sm: '0.375rem'
       },
       boxShadow: {
-        soft: '0 20px 60px -24px rgba(15, 23, 42, 0.45)'
+        soft: '0 18px 50px -28px rgba(15, 23, 42, 0.18)'
       }
     }
   },

@@ -14,6 +14,12 @@ export type Neighborhood = {
     radius?: number;
     sort?: string;
   };
+  visitKoreaChart?: {
+    ctpvNm: string;
+    sggCds: string[];
+    categories?: string[];
+    type?: 1 | 2;
+  };
 };
 
 export type NeighborhoodViewSummary = {
@@ -53,8 +59,27 @@ export type Restaurant = {
   distanceMeters?: number;
   score?: number;
   reasons?: string[];
-  source?: 'kakao';
+  source?: 'kakao' | 'visitkorea' | 'naver';
 };
+
+
+export type RestaurantReview = {
+  id: string;
+  restaurantId: string;
+  reviewerName: string;
+  rating: number;
+  content: string;
+  createdAt: string;
+};
+
+export type RestaurantReviewDraft = {
+  restaurantId: string;
+  reviewerName: string;
+  rating: number;
+  content: string;
+};
+
+export type RestaurantReviewSubmitResult = { ok: true } | { ok: false; error: string };
 
 export type EnrichedRestaurant = Restaurant & {
   score: number;
@@ -81,7 +106,7 @@ export type SeedRestaurant = Restaurant &
 
 export type NeighborhoodView = {
   neighborhood: Neighborhood | null;
-  source: 'seeded' | 'kakao';
+  source: 'seeded' | 'kakao' | 'visitkorea' | 'naver';
   fallbackReason?: string;
   ranked: EnrichedRestaurant[];
   top5: EnrichedRestaurant[];
@@ -103,7 +128,7 @@ export type CandidateReportThresholds = {
 };
 
 export type CandidateReportInstrumentation = {
-  source: 'seeded' | 'kakao-local-api';
+  source: 'seeded' | 'kakao-local-api' | 'visitkorea-chart-api' | 'naver-shared-list';
   query?: string;
   radiusMeters?: number;
   sort?: string;
@@ -157,7 +182,7 @@ export type CandidateReportCandidateItem = {
 
 export type CandidateReport = {
   neighborhood: Neighborhood | null;
-  source: 'seeded' | 'kakao';
+  source: 'seeded' | 'kakao' | 'visitkorea' | 'naver';
   fallbackReason?: string;
   summary: CandidateReportSummary;
   instrumentation: CandidateReportInstrumentation;

@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 import { createLocalServer } from '../src/server';
 
@@ -36,6 +39,15 @@ async function withServer(run: (baseUrl: string) => Promise<void>, options: Para
       });
     });
   }
+}
+
+async function createTempDb(t: test.TestContext) {
+  const dir = await mkdtemp(join(tmpdir(), 'omo-server-db-'));
+  t.after(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  return join(dir, 'restaurants.sqlite');
 }
 
 test('local server serves the Next page shell', async () => {
@@ -75,13 +87,75 @@ test('local server exposes neighborhoods and ranked snapshot APIs', async () => 
     const snapshotPayload = await snapshotResponse.json();
 
     assert.equal(neighborhoodsResponse.status, 200);
-    assert.equal(neighborhoodsPayload.neighborhoods.length, 3);
+    assert.equal(neighborhoodsPayload.neighborhoods.length, 7);
+    assert.deepEqual(
+      neighborhoodsPayload.neighborhoods.map((neighborhood: { id: string }) => neighborhood.id),
+      ['seoul-all', 'seongsu', 'mangwon', 'euljiro', 'gwangjin', 'dongdaemun', 'naver-shared']
+    );
+    assert.equal(neighborhoodsPayload.neighborhoods[0].name, '서울 전체');
+    assert.equal(neighborhoodsPayload.neighborhoods[0].visitKoreaChart.sggCds.length, 25);
+    assert.equal(neighborhoodsPayload.neighborhoods.at(-1).name, '네이버 저장 맛집');
+    assert.deepEqual(
+      neighborhoodsPayload.neighborhoods
+        .filter((neighborhood: { visitKoreaChart?: { sggCds: string[] } }) => neighborhood.visitKoreaChart)
+        .slice(-2)
+        .map((neighborhood: { visitKoreaChart: { sggCds: string[] } }) => neighborhood.visitKoreaChart.sggCds[0]),
+      ['11215', '11230']
+    );
     assert.equal(snapshotResponse.status, 200);
     assert.equal(snapshotPayload.view.top5.length, 5);
     assert.equal(snapshotPayload.view.selected.id, snapshotPayload.view.ranked[0].id);
   }, {
     kakaoJsKey: '',
     kakaoRestApiKey: ''
+  });
+});
+
+test('local server can use VisitKorea chart data when Kakao data is unavailable', async (t) => {
+  const visitKoreaDbPath = await createTempDb(t);
+  const calls: string[] = [];
+  const fetchImpl = async (input: string | URL | Request, init: RequestInit = {}) => {
+    calls.push(`${String(input)} ${String(init.body)}`);
+
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      async json() {
+        return {
+          body: {
+            chartList: [
+              {
+                ENT_NM1: 'RSG 성수',
+                ROAD_NM_ADDR: '서울 성동구 연무장15길 11',
+                SE_CD: '양식',
+                LAT: '37.541',
+                LON: '127.056'
+              }
+            ]
+          }
+        };
+      }
+    } as Response;
+  };
+
+  await withServer(async (baseUrl) => {
+    const snapshotResponse = await fetch(`${baseUrl}/api/neighborhoods/seongsu/snapshot`);
+    const snapshotPayload = await snapshotResponse.json();
+
+    assert.equal(snapshotResponse.status, 200);
+    assert.equal(snapshotPayload.view.source, 'visitkorea');
+    assert.equal(snapshotPayload.view.ranked[0].name, 'RSG 성수');
+    assert.equal(snapshotPayload.view.ranked[0].roadAddressName, '서울 성동구 연무장15길 11');
+    assert.equal(snapshotPayload.view.ranked[0].lat, 37.541);
+    assert.equal(snapshotPayload.report.instrumentation.source, 'visitkorea-chart-api');
+    assert.match(calls[0], /AREA_CHART_LIST/);
+  }, {
+    fetchImpl,
+    kakaoJsKey: '',
+    kakaoRestApiKey: '',
+    visitKoreaDbPath,
+    visitKoreaEnabled: true
   });
 });
 
@@ -141,6 +215,40 @@ test('local server can return Kakao-backed neighborhood snapshots when REST key 
       assert.equal(kakaoCalls[0].headers?.Authorization, 'KakaoAK test-rest-key');
     },
     { fetchImpl: kakaoFetch, kakaoJsKey: 'test-js-key', kakaoRestApiKey: 'test-rest-key' }
+  );
+});
+
+test('local server reports disabled Kakao Maps SDK service without exposing the JS key', async () => {
+  const kakaoFetch = async (input: string | URL | Request) => {
+    assert.match(String(input), /maps\/sdk\.js/);
+    assert.match(String(input), /appkey=/);
+
+    return {
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      async text() {
+        return JSON.stringify({
+          errorType: 'NotAuthorizedError',
+          message: 'App disabled OPEN_MAP_AND_LOCAL service.'
+        });
+      }
+    } as Response;
+  };
+
+  await withServer(
+    async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/kakao/maps-sdk/status`);
+      const payload = await response.json();
+      const serialized = JSON.stringify(payload);
+
+      assert.equal(response.status, 200);
+      assert.equal(payload.ok, false);
+      assert.equal(payload.reason, 'service-disabled');
+      assert.match(payload.message, /OPEN_MAP_AND_LOCAL/);
+      assert.doesNotMatch(serialized, /test-js-key/);
+    },
+    { fetchImpl: kakaoFetch, kakaoJsKey: 'test-js-key', kakaoRestApiKey: '' }
   );
 });
 

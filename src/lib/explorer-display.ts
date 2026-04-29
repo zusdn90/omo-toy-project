@@ -36,9 +36,15 @@ export function getPlaceBadge(place: Pick<Restaurant, 'score' | 'distanceMeters'
 
 export function buildExplorerMetrics(view: NeighborhoodView, report: CandidateReport | null) {
   const totalPlaces = view.summary.totalPlaces ?? view.summary.totalRestaurants ?? view.ranked.length;
-  const scoreLabel = view.source === 'kakao' ? '평균 점수' : '평균 가성비 점수';
+  const scoreLabel = view.source === 'seeded' ? '평균 가성비 점수' : '평균 점수';
   const sourceLabel = view.source === 'kakao' ? '평균 거리' : '데이터 소스';
-  const sourceValue = view.source === 'kakao' ? formatDistance(report?.summary.averageDistance ?? view.summary.averageDistance) : 'Seeded fallback';
+  const sourceValue = view.source === 'kakao'
+    ? formatDistance(report?.summary.averageDistance ?? view.summary.averageDistance)
+    : view.source === 'naver'
+      ? 'Naver saved list'
+      : view.source === 'visitkorea'
+        ? 'VisitKorea chart'
+        : 'Seeded fallback';
 
   return [
     { label: '탐색 결과', value: String(totalPlaces) },

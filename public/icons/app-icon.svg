@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="동네 맛집 지도 앱 아이콘">
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <circle cx="178" cy="174" r="76" fill="#38bdf8" opacity="0.95"/>
+  <path d="M334 104c-65 0-118 53-118 118 0 88 118 190 118 190s118-102 118-190c0-65-53-118-118-118Zm0 164a46 46 0 1 1 0-92 46 46 0 0 1 0 92Z" fill="#f8fafc"/>
+  <path d="M96 344c53-34 108-50 165-50 48 0 94 12 139 37 19 10 31 29 31 51v20H96v-58Z" fill="#22c55e" opacity="0.95"/>
+  <path d="M118 374c43-22 89-33 137-33 44 0 86 9 127 28" fill="none" stroke="#f8fafc" stroke-width="20" stroke-linecap="round" opacity="0.9"/>
+</svg>

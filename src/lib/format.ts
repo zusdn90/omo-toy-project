@@ -29,7 +29,13 @@ export function safePlaceUrl(value: string | null | undefined) {
 
   try {
     const url = new URL(value);
-    if (url.hostname === 'place.map.kakao.com' && (url.protocol === 'https:' || url.protocol === 'http:')) {
+    if (
+      (url.hostname === 'place.map.kakao.com' ||
+        url.hostname === 'map.naver.com' ||
+        url.hostname === 'pcmap.place.naver.com' ||
+        url.hostname.endsWith('visitkorea.or.kr')) &&
+      (url.protocol === 'https:' || url.protocol === 'http:')
+    ) {
       return url.href;
     }
   } catch {

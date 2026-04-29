@@ -32,5 +32,19 @@ test('Kakao place normalization keeps marker/list sync data available to the UI'
   assert.match(mapSource, /getRestaurantLatLng\(restaurant, kakao, view\)/);
   assert.match(mapSource, /function isFiniteNumber\(value: number \| undefined\): value is number/);
   assert.match(mapSource, /if \(isFiniteNumber\(restaurant\.lat\) && isFiniteNumber\(restaurant\.lng\)\)/);
+  assert.match(mapSource, /const address = restaurant\.roadAddressName \|\| restaurant\.addressName \|\| '주소 정보 없음';/);
+  assert.match(mapSource, /주소/);
+  assert.doesNotMatch(mapSource, /점수 \$\{escapeHtml\(restaurant\.score/);
+  assert.match(mapSource, /flex h-full min-h-\[520px\]/);
+  assert.match(mapSource, /flex min-h-\[420px\] flex-1/);
   assert.match(explorerSource, /setSelectedRestaurantId\(id\)/);
+});
+
+
+test('Naver saved-list places get a separate marker color on the map', () => {
+  assert.match(mapSource, /const MARKER_COLORS/);
+  assert.match(mapSource, /naver: '#e11d48'/);
+  assert.match(mapSource, /createMarkerImage\(kakao, restaurant\)/);
+  assert.match(mapSource, /MarkerImage/);
+  assert.match(mapSource, /Naver 저장/);
 });

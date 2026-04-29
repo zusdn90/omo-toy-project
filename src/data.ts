@@ -1,15 +1,66 @@
 import type { Neighborhood, SeedRestaurant } from './lib/types';
 
+const seoulSggCodes = [
+  '11110',
+  '11140',
+  '11170',
+  '11200',
+  '11215',
+  '11230',
+  '11260',
+  '11290',
+  '11305',
+  '11320',
+  '11350',
+  '11380',
+  '11410',
+  '11440',
+  '11470',
+  '11500',
+  '11530',
+  '11545',
+  '11560',
+  '11590',
+  '11620',
+  '11650',
+  '11680',
+  '11710',
+  '11740'
+];
+
 export const neighborhoods = [
+  {
+    id: 'seoul-all',
+    name: '서울 전체',
+    vibe: '대한민국 구석구석 맛집차트 기준 서울 25개 구의 인기 맛집을 한 번에 보는 지도',
+    mapCenter: { lat: 37.5665, lng: 126.978, level: 8 },
+    kakaoSearch: {
+      query: '서울 맛집',
+      radius: 20000,
+      sort: 'distance'
+    },
+    visitKoreaChart: {
+      ctpvNm: '서울특별시',
+      sggCds: seoulSggCodes,
+      categories: [],
+      type: 1
+    }
+  },
   {
     id: 'seongsu',
     name: '성수',
-    vibe: '공방과 팝업 사이에 숨어 있는 점심·저녁 후보를 빠르게 훑기 좋은 동네',
+    vibe: '공방과 팝업이 이어지는 골목에서 점심·저녁 후보를 발견하기 좋은 동네',
     mapCenter: { lat: 37.5442, lng: 127.0558, level: 4 },
     kakaoSearch: {
       query: '성수동 맛집',
       radius: 1500,
       sort: 'distance'
+    },
+    visitKoreaChart: {
+      ctpvNm: '서울특별시',
+      sggCds: ['11200'],
+      categories: [],
+      type: 1
     }
   },
   {
@@ -21,6 +72,12 @@ export const neighborhoods = [
       query: '망원동 맛집',
       radius: 1500,
       sort: 'distance'
+    },
+    visitKoreaChart: {
+      ctpvNm: '서울특별시',
+      sggCds: ['11440'],
+      categories: [],
+      type: 1
     }
   },
   {
@@ -32,7 +89,53 @@ export const neighborhoods = [
       query: '을지로 맛집',
       radius: 1500,
       sort: 'distance'
+    },
+    visitKoreaChart: {
+      ctpvNm: '서울특별시',
+      sggCds: ['11140'],
+      categories: [],
+      type: 1
     }
+  },
+  {
+    id: 'gwangjin',
+    name: '광진구',
+    vibe: '건대입구와 어린이대공원 주변까지 외식 후보를 넓게 비교하기 좋은 동네',
+    mapCenter: { lat: 37.5481, lng: 127.0857, level: 5 },
+    kakaoSearch: {
+      query: '광진구 맛집',
+      radius: 2000,
+      sort: 'distance'
+    },
+    visitKoreaChart: {
+      ctpvNm: '서울특별시',
+      sggCds: ['11215'],
+      categories: [],
+      type: 1
+    }
+  },
+  {
+    id: 'dongdaemun',
+    name: '동대문구',
+    vibe: '청량리와 회기 생활권을 중심으로 점심·저녁 후보를 찾기 좋은 동네',
+    mapCenter: { lat: 37.5744, lng: 127.0396, level: 5 },
+    kakaoSearch: {
+      query: '동대문구 맛집',
+      radius: 2000,
+      sort: 'distance'
+    },
+    visitKoreaChart: {
+      ctpvNm: '서울특별시',
+      sggCds: ['11230'],
+      categories: [],
+      type: 1
+    }
+  },
+  {
+    id: 'naver-shared',
+    name: '네이버 저장 맛집',
+    vibe: '공유받은 네이버 지도 저장목록 맛집 422곳을 한 번에 보는 컬렉션',
+    mapCenter: { lat: 37.5665, lng: 126.978, level: 8 }
   }
 ] satisfies Neighborhood[];
 
@@ -306,5 +409,233 @@ export const restaurants = [
     y: 68,
     specialties: ['김치찌개', '계란말이'],
     note: '전통적인 메뉴 조합에 대한 만족 댓글이 꾸준하다.'
+  },
+  {
+    id: 'gwangjin-ashley-queens-guui',
+    neighborhoodId: 'gwangjin',
+    name: '애슐리퀸즈 구의이스트폴점',
+    category: '패밀리레스토랑',
+    avgMealPrice: 19900,
+    tasteScore: 8.3,
+    evidenceCount: 100,
+    blogMentions: 30,
+    positiveReviewRatio: 0.92,
+    x: 56,
+    y: 58,
+    lat: 37.53671721896844,
+    lng: 127.08789463681796,
+    roadAddressName: '서울 광진구 아차산로 402',
+    addressName: '서울 광진구 아차산로 402',
+    specialties: ['뷔페', '패밀리레스토랑'],
+    note: '대한민국 구석구석 맛집차트 광진구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'gwangjin-starbucks-guui-dt',
+    neighborhoodId: 'gwangjin',
+    name: '스타벅스 구의DT점',
+    category: '커피전문점',
+    avgMealPrice: 7000,
+    tasteScore: 7.9,
+    evidenceCount: 94,
+    blogMentions: 28,
+    positiveReviewRatio: 0.9,
+    x: 54,
+    y: 43,
+    lat: 37.5452992590491,
+    lng: 127.087195778352,
+    roadAddressName: '서울 광진구 광나루로 519',
+    addressName: '서울 광진구 광나루로 519',
+    specialties: ['커피', '디저트'],
+    note: '대한민국 구석구석 맛집차트 광진구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'gwangjin-songrim-restaurant',
+    neighborhoodId: 'gwangjin',
+    name: '송림식당 [한식]',
+    category: '한식',
+    avgMealPrice: 12000,
+    tasteScore: 8.8,
+    evidenceCount: 88,
+    blogMentions: 26,
+    positiveReviewRatio: 0.93,
+    x: 33,
+    y: 58,
+    lat: 37.53669435709824,
+    lng: 127.07636141622157,
+    roadAddressName: '서울 광진구 자양번영로 79',
+    addressName: '서울 광진구 자양번영로 79',
+    specialties: ['한식', '식사'],
+    note: '대한민국 구석구석 맛집차트 광진구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'gwangjin-on-the-bread',
+    neighborhoodId: 'gwangjin',
+    name: '온더브레드 광진점',
+    category: '제과점',
+    avgMealPrice: 9000,
+    tasteScore: 8.1,
+    evidenceCount: 82,
+    blogMentions: 24,
+    positiveReviewRatio: 0.9,
+    x: 82,
+    y: 42,
+    lat: 37.54582455777235,
+    lng: 127.10295587513612,
+    roadAddressName: '서울 광진구 천호대로 801',
+    addressName: '서울 광진구 천호대로 801',
+    specialties: ['베이커리', '커피'],
+    note: '대한민국 구석구석 맛집차트 광진구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'gwangjin-hamheung-naengmyeon-kondae',
+    neighborhoodId: 'gwangjin',
+    name: '함흥본가면옥 건대점',
+    category: '한식',
+    avgMealPrice: 11000,
+    tasteScore: 8.5,
+    evidenceCount: 76,
+    blogMentions: 22,
+    positiveReviewRatio: 0.91,
+    x: 40,
+    y: 43,
+    lat: 37.54516319002332,
+    lng: 127.07985097444919,
+    roadAddressName: '서울 광진구 광나루로 456',
+    addressName: '서울 광진구 광나루로 456',
+    specialties: ['냉면', '한식'],
+    note: '대한민국 구석구석 맛집차트 광진구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'gwangjin-songdo-galbi',
+    neighborhoodId: 'gwangjin',
+    name: '송도갈비 광장점',
+    category: '한식',
+    avgMealPrice: 18000,
+    tasteScore: 8.6,
+    evidenceCount: 70,
+    blogMentions: 20,
+    positiveReviewRatio: 0.91,
+    x: 80,
+    y: 41,
+    lat: 37.54634681902709,
+    lng: 127.10198293989964,
+    roadAddressName: '서울 광진구 천호대로 793',
+    addressName: '서울 광진구 천호대로 793',
+    specialties: ['갈비', '한식'],
+    note: '대한민국 구석구석 맛집차트 광진구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'dongdaemun-dining-one-cheongnyangni',
+    neighborhoodId: 'dongdaemun',
+    name: '다이닝원 청량리점',
+    category: '부페',
+    avgMealPrice: 19900,
+    tasteScore: 8.2,
+    evidenceCount: 100,
+    blogMentions: 30,
+    positiveReviewRatio: 0.91,
+    x: 57,
+    y: 45,
+    lat: 37.5772704990008,
+    lng: 127.043034207749,
+    roadAddressName: '서울 동대문구 고산자로32길 78',
+    addressName: '서울 동대문구 고산자로32길 78',
+    specialties: ['뷔페', '가족외식'],
+    note: '대한민국 구석구석 맛집차트 동대문구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'dongdaemun-hongneung-galbi',
+    neighborhoodId: 'dongdaemun',
+    name: '홍능갈비집 본점',
+    category: '한식',
+    avgMealPrice: 16000,
+    tasteScore: 8.8,
+    evidenceCount: 94,
+    blogMentions: 28,
+    positiveReviewRatio: 0.93,
+    x: 56,
+    y: 29,
+    lat: 37.58689614035988,
+    lng: 127.0425576808745,
+    roadAddressName: '서울 동대문구 제기로 85',
+    addressName: '서울 동대문구 제기로 85',
+    specialties: ['갈비', '한식'],
+    note: '대한민국 구석구석 맛집차트 동대문구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'dongdaemun-burgerking-jangan',
+    neighborhoodId: 'dongdaemun',
+    name: '버거킹 장안SK점',
+    category: '패스트푸드',
+    avgMealPrice: 9000,
+    tasteScore: 7.8,
+    evidenceCount: 88,
+    blogMentions: 26,
+    positiveReviewRatio: 0.88,
+    x: 87,
+    y: 56,
+    lat: 37.570171364178904,
+    lng: 127.06499748448584,
+    roadAddressName: '서울 동대문구 한천로 100',
+    addressName: '서울 동대문구 한천로 100',
+    specialties: ['버거', '패스트푸드'],
+    note: '대한민국 구석구석 맛집차트 동대문구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'dongdaemun-ilmi-gejang',
+    neighborhoodId: 'dongdaemun',
+    name: '일미간장게장 본점',
+    category: '전문음식점',
+    avgMealPrice: 18000,
+    tasteScore: 8.7,
+    evidenceCount: 82,
+    blogMentions: 24,
+    positiveReviewRatio: 0.92,
+    x: 95,
+    y: 55,
+    lat: 37.5708682974026,
+    lng: 127.071421767987,
+    roadAddressName: '서울 동대문구 장한로24길 7',
+    addressName: '서울 동대문구 장한로24길 7',
+    specialties: ['간장게장', '한식'],
+    note: '대한민국 구석구석 맛집차트 동대문구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'dongdaemun-kfc-jeonnong',
+    neighborhoodId: 'dongdaemun',
+    name: 'KFC 전농동점',
+    category: '패스트푸드',
+    avgMealPrice: 9000,
+    tasteScore: 7.7,
+    evidenceCount: 76,
+    blogMentions: 22,
+    positiveReviewRatio: 0.87,
+    x: 78,
+    y: 48,
+    lat: 37.5754067062954,
+    lng: 127.057948125287,
+    roadAddressName: '서울 동대문구 전농로 118',
+    addressName: '서울 동대문구 전농로 118',
+    specialties: ['치킨', '패스트푸드'],
+    note: '대한민국 구석구석 맛집차트 동대문구 현지인 랭킹 후보.'
+  },
+  {
+    id: 'dongdaemun-eomeoni-daesungjip',
+    neighborhoodId: 'dongdaemun',
+    name: '어머니대성집',
+    category: '한식',
+    avgMealPrice: 12000,
+    tasteScore: 8.5,
+    evidenceCount: 70,
+    blogMentions: 20,
+    positiveReviewRatio: 0.91,
+    x: 35,
+    y: 45,
+    lat: 37.57751310069622,
+    lng: 127.02854772845984,
+    roadAddressName: '서울 동대문구 왕산로11길 4',
+    addressName: '서울 동대문구 왕산로11길 4',
+    specialties: ['해장국', '한식'],
+    note: '대한민국 구석구석 맛집차트 동대문구 현지인 랭킹 후보.'
   }
 ] satisfies SeedRestaurant[];

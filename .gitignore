@@ -1,6 +1,7 @@
 .env
 .omx/
 .next/
+.next-test/
 tsconfig.tsbuildinfo
 node_modules/
 dist/

@@ -84,3 +84,29 @@ test('buildExplorerMetrics switches labels for kakao-backed and seeded neighborh
     { label: '데이터 소스', value: 'Seeded fallback' }
   ]);
 });
+
+
+test('buildExplorerMetrics labels Naver shared-list data separately', () => {
+  const naverView = {
+    source: 'naver',
+    ranked: [{ id: 'a', name: 'A', score: 100, reasons: ['네이버'] }],
+    top5: [{ id: 'a', name: 'A', score: 100, reasons: ['네이버'] }],
+    selected: null,
+    summary: {
+      totalRestaurants: 422,
+      totalPlaces: 422,
+      averageScore: '79.0',
+      bestEvidenceName: '회다이',
+      lowestPriceLabel: '-',
+      searchQuery: '네이버 지도 저장목록 맛집'
+    },
+    neighborhood: null
+  } as NeighborhoodView;
+
+  assert.deepEqual(buildExplorerMetrics(naverView, null), [
+    { label: '탐색 결과', value: '422' },
+    { label: '평균 점수', value: '79.0' },
+    { label: 'Top 5 압축', value: '1/1' },
+    { label: '데이터 소스', value: 'Naver saved list' }
+  ]);
+});

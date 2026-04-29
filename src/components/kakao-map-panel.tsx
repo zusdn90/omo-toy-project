@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,46 @@ import { cn } from '@/lib/utils';
 
 const RESTAURANT_LAT_SPAN = 0.00036;
 const RESTAURANT_LNG_SPAN = 0.00044;
+
+const MARKER_COLORS = {
+  seeded: '#0f172a',
+  kakao: '#0284c7',
+  visitkorea: '#16a34a',
+  naver: '#e11d48'
+} as const;
+
+function getRestaurantSource(restaurant: Restaurant) {
+  return restaurant.source ?? 'seeded';
+}
+
+function getMarkerColor(restaurant: Restaurant) {
+  return MARKER_COLORS[getRestaurantSource(restaurant)];
+}
+
+function getMarkerSourceLabel(source: keyof typeof MARKER_COLORS) {
+  if (source === 'kakao') {
+    return 'Kakao';
+  }
+
+  if (source === 'visitkorea') {
+    return 'VisitKorea';
+  }
+
+  if (source === 'naver') {
+    return 'Naver 저장';
+  }
+
+  return 'Seeded';
+}
+
+function createMarkerImage(kakao: KakaoNamespace, restaurant: Restaurant) {
+  const color = encodeURIComponent(getMarkerColor(restaurant));
+  const stroke = encodeURIComponent('#ffffff');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="44" viewBox="0 0 34 44"><path fill="${color}" stroke="${stroke}" stroke-width="3" d="M17 2.5c8.008 0 14.5 6.492 14.5 14.5 0 10.875-14.5 24.5-14.5 24.5S2.5 27.875 2.5 17C2.5 8.992 8.992 2.5 17 2.5Z"/><circle cx="17" cy="17" r="5.5" fill="${stroke}"/></svg>`;
+  return new kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${svg}`, new kakao.maps.Size(34, 44), {
+    offset: new kakao.maps.Point(17, 44)
+  });
+}
 
 let kakaoSdkPromise: Promise<KakaoNamespace> | null = null;
 
@@ -49,13 +89,35 @@ function getRestaurantLatLng(restaurant: Restaurant, kakao: KakaoNamespace, view
 }
 
 function buildInfoWindowContent(restaurant: Restaurant) {
+  const address = restaurant.roadAddressName || restaurant.addressName || '주소 정보 없음';
+  const sourceLabel = getMarkerSourceLabel(getRestaurantSource(restaurant));
+
   return `
     <div style="padding:12px 14px;min-width:180px;font-family:Arial,sans-serif;">
       <strong style="display:block;font-size:14px;margin-bottom:4px;">${escapeHtml(restaurant.name)}</strong>
-      <div style="font-size:12px;line-height:1.4;opacity:0.9;">${escapeHtml(restaurant.category ?? '-')} · ${escapeHtml(restaurant.roadAddressName || restaurant.addressName || restaurant.note || '-')}</div>
-      <div style="margin-top:6px;font-size:12px;font-weight:700;color:#2563eb;">점수 ${escapeHtml(restaurant.score ?? '-')}</div>
+      <div style="font-size:12px;line-height:1.4;opacity:0.9;">${escapeHtml(restaurant.category ?? '-')}</div>
+      <div style="margin-top:4px;font-size:12px;line-height:1.4;opacity:0.9;">출처 · ${escapeHtml(sourceLabel)}</div>
+      <div style="margin-top:4px;font-size:12px;line-height:1.4;opacity:0.9;">주소 · ${escapeHtml(address)}</div>
     </div>
   `;
+}
+
+function getRestaurantAddress(restaurant: Restaurant | null) {
+  return restaurant?.roadAddressName || restaurant?.addressName || '주소 정보 없음';
+}
+
+async function createKakaoSdkLoadError(fallbackMessage: string) {
+  try {
+    const response = await fetch('/api/kakao/maps-sdk/status', { cache: 'no-store' });
+    const payload = (await response.json()) as { ok?: boolean; message?: string };
+    if (payload.ok === false && payload.message) {
+      return new Error(payload.message);
+    }
+  } catch {
+    // Keep the original browser script-load error when the diagnostic endpoint is unavailable.
+  }
+
+  return new Error(fallbackMessage);
 }
 
 function syncSelectedMarkerState({
@@ -120,7 +182,7 @@ function loadKakaoMapsSdk() {
           'error',
           () => {
             existing.remove();
-            reject(new Error('Kakao Maps SDK failed to load'));
+            void createKakaoSdkLoadError('Kakao Maps SDK failed to load').then(reject);
           },
           { once: true }
         );
@@ -143,7 +205,7 @@ function loadKakaoMapsSdk() {
       };
       script.onerror = () => {
         script.remove();
-        reject(new Error('Kakao Maps SDK failed to load'));
+        void createKakaoSdkLoadError('Kakao Maps SDK failed to load').then(reject);
       };
       document.head.append(script);
     });
@@ -217,7 +279,8 @@ export function KakaoMapPanel({
             map,
             position,
             title: restaurant.name,
-            zIndex: restaurant.id === selectedRestaurant?.id ? 3 : 1
+            zIndex: restaurant.id === selectedRestaurant?.id ? 3 : 1,
+            image: createMarkerImage(kakao, restaurant)
           });
 
           kakao.maps.event.addListener(marker, 'click', () => {
@@ -281,37 +344,46 @@ export function KakaoMapPanel({
   }, [selectedRestaurant?.id, view]);
 
   return (
-    <Card className="overflow-hidden border-border/70 bg-card/90 shadow-soft" data-testid="kakao-map-panel">
-      <CardHeader className="space-y-2 border-b border-border/60 bg-card/40">
+    <Card className="flex h-full min-h-[520px] flex-col overflow-hidden rounded-[2rem] border-slate-200 bg-white shadow-soft" data-testid="kakao-map-panel">
+      <CardHeader className="space-y-3 border-b border-slate-200 bg-white p-6 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300/90">Map view</p>
-            <CardTitle className="mt-2 text-2xl">지도 + 랭킹</CardTitle>
-            <CardDescription className="mt-1 text-sm text-muted-foreground">
-              카카오맵 위에서 마커를 누르거나 리스트를 클릭하면 같은 후보가 강조됩니다.
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Map view</p>
+            <CardTitle className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">지도 탐색</CardTitle>
+            <CardDescription className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              카카오맵 위에서 마커를 누르거나 추천 카드를 선택하면 같은 후보가 강조됩니다.
             </CardDescription>
           </div>
-          <Badge variant="outline" className="border-cyan-400/30 bg-cyan-400/10 text-cyan-100">
-            {view.source === 'kakao' ? 'kakao local' : 'seeded fallback'}
+          <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
+            {view.ranked.length.toLocaleString('ko-KR')} markers
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 p-0">
-        <div className="relative overflow-hidden rounded-b-3xl">
-          <div ref={containerRef} className="h-[420px] w-full bg-slate-900/90" aria-label="카카오 지도" />
+      <CardContent className="flex flex-1 flex-col p-0">
+        <div className="relative flex min-h-[420px] flex-1 overflow-hidden bg-slate-950 sm:min-h-[460px] lg:min-h-[520px]">
+          <div ref={containerRef} className="min-h-[420px] w-full flex-1 bg-slate-900/90 sm:min-h-[460px] lg:min-h-[520px]" aria-label="카카오 지도" />
           <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2">
-            <Badge variant="secondary" className="bg-slate-950/85 text-slate-100">
+            <Badge variant="secondary" className="rounded-full bg-white/95 px-3 py-1 text-slate-700 shadow-sm">
               Kakao Map
             </Badge>
-            <Badge variant="outline" className="border-white/10 bg-black/30 text-white">
+            <Badge variant="outline" className="rounded-full border-slate-200 bg-white/90 px-3 py-1 text-slate-700 shadow-sm">
               {badgeLabel || '지도 기준'}
             </Badge>
+            {Array.from(new Set(view.ranked.map((restaurant) => getRestaurantSource(restaurant)))).map((source) => (
+              <Badge key={source} variant="outline" className="rounded-full border-slate-200 bg-white/90 px-3 py-1 text-slate-700 shadow-sm">
+                <span className="mr-1.5 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: MARKER_COLORS[source] }} />
+                {getMarkerSourceLabel(source)}
+              </Badge>
+            ))}
           </div>
-          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 backdrop-blur">
-            <span className={cn('font-medium', status.includes('완료') ? 'text-emerald-300' : 'text-slate-200')} data-map-status>
-              {status}
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between gap-4 rounded-[1.35rem] border border-white/70 bg-white/95 px-4 py-3 text-sm text-slate-700 shadow-[0_22px_50px_-30px_rgba(15,23,42,0.45)] backdrop-blur">
+            <div className="min-w-0">
+              <span className={cn('font-medium', status.includes('완료') ? 'text-emerald-600' : 'text-slate-700')} data-map-status>
+                {status}
+              </span>
+              <p className="mt-1 truncate text-xs text-slate-500">주소: {getRestaurantAddress(selectedRestaurant)}</p>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
               {selectedRestaurant ? `선택: ${selectedRestaurant.name}` : '선택 없음'}
             </span>
           </div>

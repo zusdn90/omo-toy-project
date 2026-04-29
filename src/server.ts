@@ -8,8 +8,10 @@ import { buildCandidateReport, buildNeighborhoodView, neighborhoods } from './do
 import { loadDotEnv } from './env';
 import { createKakaoNeighborhoodLoader } from './kakao-local';
 import type { Neighborhood, NeighborhoodSnapshot, NeighborhoodView } from './lib/types';
+import { createVisitKoreaChartLoader } from './visitkorea-chart';
 
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
+const kakaoMapsSdkUrl = 'https://dapi.kakao.com/v2/maps/sdk.js';
 
 type Logger = {
   error?: (...args: unknown[]) => void;
@@ -20,6 +22,17 @@ type SnapshotResolver = {
   getView(neighborhoodId: string): Promise<NeighborhoodView | null>;
   getReport(neighborhoodId: string): Promise<NeighborhoodSnapshot['report'] | null>;
 };
+
+type KakaoMapsSdkStatus =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      reason: 'missing-key' | 'service-disabled' | 'unauthorized' | 'request-failed';
+      message: string;
+      status?: number;
+    };
 
 function sendJson(response: ServerResponse<IncomingMessage>, statusCode: number, payload: unknown) {
   response.writeHead(statusCode, {
@@ -42,10 +55,14 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 }
 
 function createNeighborhoodSnapshotResolver({
-  kakaoLoader
+  kakaoLoader,
+  visitKoreaLoader
 }: {
   kakaoLoader?: {
     loadNeighborhoodSnapshot(neighborhood: Neighborhood): Promise<NeighborhoodSnapshot | { error: string } | null>;
+  };
+  visitKoreaLoader?: {
+    loadNeighborhoodSnapshot(neighborhood: Neighborhood): Promise<NeighborhoodSnapshot | null>;
   };
 } = {}): SnapshotResolver {
   const snapshotCache = new Map<string, NeighborhoodSnapshot>();
@@ -67,13 +84,27 @@ function createNeighborhoodSnapshotResolver({
       return snapshotCache.get(neighborhoodId) ?? null;
     }
 
-    const kakaoSnapshot = await kakaoLoader?.loadNeighborhoodSnapshot(neighborhood);
-    if (kakaoSnapshot && 'view' in kakaoSnapshot && 'report' in kakaoSnapshot) {
-      snapshotCache.set(neighborhoodId, kakaoSnapshot);
-      return kakaoSnapshot;
+    try {
+      const visitKoreaSnapshot = await visitKoreaLoader?.loadNeighborhoodSnapshot(neighborhood);
+      if (visitKoreaSnapshot) {
+        snapshotCache.set(neighborhoodId, visitKoreaSnapshot);
+        return visitKoreaSnapshot;
+      }
+    } catch {
+      // Keep the app usable when the public VisitKorea chart endpoint is delayed.
     }
 
-    return buildSeededSnapshot(neighborhoodId, 'Kakao snapshot unavailable');
+    try {
+      const kakaoSnapshot = await kakaoLoader?.loadNeighborhoodSnapshot(neighborhood);
+      if (kakaoSnapshot && 'view' in kakaoSnapshot && 'report' in kakaoSnapshot) {
+        snapshotCache.set(neighborhoodId, kakaoSnapshot);
+        return kakaoSnapshot;
+      }
+    } catch {
+      // Fall through to seeded data when Kakao Local is unavailable or not configured.
+    }
+
+    return buildSeededSnapshot(neighborhoodId, 'Live snapshot unavailable');
   }
 
   return {
@@ -89,6 +120,64 @@ function createNeighborhoodSnapshotResolver({
       return snapshot?.report ?? null;
     }
   };
+}
+
+async function checkKakaoMapsSdkStatus({
+  apiKey,
+  fetchImpl = fetch
+}: {
+  apiKey: string;
+  fetchImpl?: typeof fetch;
+}): Promise<KakaoMapsSdkStatus> {
+  if (!apiKey) {
+    return {
+      ok: false,
+      reason: 'missing-key',
+      message: 'KAKAO_JS_KEY가 비어 있습니다. .env에 Kakao JavaScript 키를 설정한 뒤 서버를 다시 시작하세요.'
+    };
+  }
+
+  const url = new URL(kakaoMapsSdkUrl);
+  url.searchParams.set('appkey', apiKey);
+  url.searchParams.set('autoload', 'false');
+
+  try {
+    const response = await fetchImpl(url);
+    if (response.ok) {
+      return { ok: true };
+    }
+
+    const rawBody = await response.text();
+    let kakaoMessage = '';
+    try {
+      const payload = JSON.parse(rawBody) as { message?: string };
+      kakaoMessage = payload.message ?? '';
+    } catch {
+      kakaoMessage = rawBody;
+    }
+
+    if (kakaoMessage.includes('disabled OPEN_MAP_AND_LOCAL service')) {
+      return {
+        ok: false,
+        reason: 'service-disabled',
+        status: response.status,
+        message: 'Kakao Developers 앱 설정에서 Maps/Local(OPEN_MAP_AND_LOCAL) 서비스를 활성화한 뒤 로컬 서버를 다시 시작하세요.'
+      };
+    }
+
+    return {
+      ok: false,
+      reason: response.status === 401 || response.status === 403 ? 'unauthorized' : 'request-failed',
+      status: response.status,
+      message: `Kakao Maps SDK 확인 실패: ${response.status} ${response.statusText}`.trim()
+    };
+  } catch {
+    return {
+      ok: false,
+      reason: 'request-failed',
+      message: 'Kakao Maps SDK 상태를 확인하지 못했습니다. 네트워크 연결 또는 dapi.kakao.com 접근 가능 여부를 확인하세요.'
+    };
+  }
 }
 
 function handleApiRequest(response: ServerResponse<IncomingMessage>, pathname: string, snapshotResolver: SnapshotResolver) {
@@ -171,6 +260,8 @@ export function createLocalServer({
   fetchImpl = globalThis.fetch,
   kakaoJsKey,
   kakaoRestApiKey,
+  visitKoreaDbPath,
+  visitKoreaEnabled = process.env.NEXT_DIST_DIR !== '.next-test',
   dev = false
 }: {
   rootDir?: string;
@@ -178,6 +269,8 @@ export function createLocalServer({
   fetchImpl?: typeof fetch;
   kakaoJsKey?: string;
   kakaoRestApiKey?: string;
+  visitKoreaDbPath?: string;
+  visitKoreaEnabled?: boolean;
   dev?: boolean;
 } = {}) {
   loadDotEnv({ cwd: rootDir });
@@ -187,7 +280,8 @@ export function createLocalServer({
     apiKey: resolvedKakaoRestApiKey,
     fetchImpl
   });
-  const snapshotResolver = createNeighborhoodSnapshotResolver({ kakaoLoader });
+  const visitKoreaLoader = visitKoreaEnabled ? createVisitKoreaChartLoader({ dbPath: visitKoreaDbPath, fetchImpl }) : undefined;
+  const snapshotResolver = createNeighborhoodSnapshotResolver({ kakaoLoader, visitKoreaLoader });
   const nextApp = next({ dev, dir: rootDir });
   const nextHandle = nextApp.getRequestHandler();
   const preparePromise = nextApp.prepare();
@@ -221,6 +315,15 @@ export function createLocalServer({
           return;
         }
 
+        if (requestUrl.pathname === '/api/kakao/maps-sdk/status') {
+          const status = await checkKakaoMapsSdkStatus({
+            apiKey: resolvedKakaoJsKey,
+            fetchImpl
+          });
+          sendJson(response, 200, status);
+          return;
+        }
+
         const handled = handleApiRequest(response, requestUrl.pathname, snapshotResolver);
         if (!handled) {
           sendJson(response, 404, { error: 'Not found' });
@@ -249,6 +352,7 @@ export function createLocalServer({
   });
 
   server.on('close', () => {
+    visitKoreaLoader?.close();
     void nextApp.close?.();
   });
 
@@ -261,6 +365,8 @@ export async function startLocalServer(options: {
   fetchImpl?: typeof fetch;
   kakaoJsKey?: string;
   kakaoRestApiKey?: string;
+  visitKoreaDbPath?: string;
+  visitKoreaEnabled?: boolean;
   dev?: boolean;
   port?: number;
   host?: string;

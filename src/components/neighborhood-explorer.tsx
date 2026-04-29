@@ -1,12 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createApiClient } from '@/api';
 import { NeighborhoodExplorerShell } from '@/components/neighborhood-explorer-shell';
 import { Card, CardContent } from '@/components/ui/card';
-import { resolveSelectedRestaurant } from '@/lib/explorer-state';
-import type { CandidateReport, Neighborhood, NeighborhoodView } from '@/lib/types';
+import { filterNeighborhoodViewByRestaurantName, resolveSelectedRestaurant } from '@/lib/explorer-state';
+import {
+  addRestaurantReview,
+  getBrowserRestaurantReviewStorage,
+  getRestaurantReviews,
+  loadStoredRestaurantReviews,
+  persistStoredRestaurantReviews
+} from '@/lib/restaurant-reviews';
+import type { CandidateReport, Neighborhood, NeighborhoodView, RestaurantReview, RestaurantReviewDraft } from '@/lib/types';
 
 const api = createApiClient();
 
@@ -16,22 +23,52 @@ export function NeighborhoodExplorer() {
   const [view, setView] = useState<NeighborhoodView | null>(null);
   const [report, setReport] = useState<CandidateReport | null>(null);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [restaurantReviews, setRestaurantReviews] = useState<RestaurantReview[]>(() => {
+    return loadStoredRestaurantReviews(getBrowserRestaurantReviewStorage());
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
   const selectedRestaurantIdRef = useRef<string | null>(null);
 
-  const selectedRestaurant = useMemo(() => {
+  const filteredView = useMemo(() => {
     if (!view) {
       return null;
     }
 
-    return resolveSelectedRestaurant(view, [selectedRestaurantId]);
-  }, [selectedRestaurantId, view]);
+    return filterNeighborhoodViewByRestaurantName(view, searchQuery);
+  }, [searchQuery, view]);
+
+  const selectedRestaurant = useMemo(() => {
+    if (!filteredView) {
+      return null;
+    }
+
+    return resolveSelectedRestaurant(filteredView, [selectedRestaurantId]);
+  }, [filteredView, selectedRestaurantId]);
+
+  const displayedSelectedRestaurantId = selectedRestaurant?.id ?? null;
+
+  const selectedRestaurantReviews = useMemo(() => {
+    if (!displayedSelectedRestaurantId) {
+      return [];
+    }
+
+    return getRestaurantReviews(restaurantReviews, displayedSelectedRestaurantId);
+  }, [displayedSelectedRestaurantId, restaurantReviews]);
+
+  const handleSearchQueryChange = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   useEffect(() => {
     selectedRestaurantIdRef.current = selectedRestaurantId;
   }, [selectedRestaurantId]);
+
+  useEffect(() => {
+    persistStoredRestaurantReviews(getBrowserRestaurantReviewStorage(), restaurantReviews);
+  }, [restaurantReviews]);
 
   const loadNeighborhood = useCallback(
     async (neighborhoodId: string, keepSelection = false) => {
@@ -42,6 +79,7 @@ export function NeighborhoodExplorer() {
 
       if (!keepSelection) {
         setSelectedRestaurantId(null);
+        setSearchQuery('');
       }
 
       try {
@@ -73,6 +111,16 @@ export function NeighborhoodExplorer() {
   const handleSelectRestaurant = useCallback((id: string) => {
     setSelectedRestaurantId(id);
   }, []);
+
+  const handleSubmitRestaurantReview = useCallback((draft: RestaurantReviewDraft) => {
+    const result = addRestaurantReview(restaurantReviews, draft);
+    if (!result.ok) {
+      return { ok: false as const, error: result.error };
+    }
+
+    setRestaurantReviews(result.reviews);
+    return { ok: true as const };
+  }, [restaurantReviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,21 +157,21 @@ export function NeighborhoodExplorer() {
 
   const activeNeighborhood = neighborhoods.find((item) => item.id === activeNeighborhoodId) ?? view?.neighborhood ?? null;
 
-  if (!view && isLoading) {
+  if (!filteredView && isLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center px-4 py-10">
-        <Card className="w-full max-w-2xl border-border/70 bg-card/90 shadow-soft">
-          <CardContent className="p-8 text-center text-sm text-muted-foreground">로컬 API에서 시드 데이터를 불러오는 중입니다...</CardContent>
+        <Card className="w-full max-w-2xl border-slate-200 bg-white shadow-soft">
+          <CardContent className="p-8 text-center text-sm text-slate-600">로컬 API에서 시드 데이터를 불러오는 중입니다...</CardContent>
         </Card>
       </main>
     );
   }
 
-  if (!view) {
+  if (!filteredView) {
     return (
       <main className="flex min-h-screen items-center justify-center px-4 py-10">
-        <Card className="w-full max-w-2xl border-rose-500/20 bg-card/90 shadow-soft">
-          <CardContent className="p-8 text-center text-sm text-rose-200">{error ?? '표시할 데이터가 없습니다.'}</CardContent>
+        <Card className="w-full max-w-2xl border-rose-200 bg-white shadow-soft">
+          <CardContent className="p-8 text-center text-sm text-rose-700">{error ?? '표시할 데이터가 없습니다.'}</CardContent>
         </Card>
       </main>
     );
@@ -134,12 +182,16 @@ export function NeighborhoodExplorer() {
       neighborhoods={neighborhoods}
       activeNeighborhood={activeNeighborhood}
       activeNeighborhoodId={activeNeighborhoodId}
-      view={view}
+      view={filteredView}
       report={report}
       selectedRestaurant={selectedRestaurant}
-      selectedRestaurantId={selectedRestaurantId}
+      selectedRestaurantId={displayedSelectedRestaurantId}
+      searchQuery={searchQuery}
+      onSearchQueryChange={handleSearchQueryChange}
       onSelectNeighborhood={(id) => loadNeighborhood(id, false)}
       onSelectRestaurant={handleSelectRestaurant}
+      selectedRestaurantReviews={selectedRestaurantReviews}
+      onSubmitRestaurantReview={handleSubmitRestaurantReview}
     />
   );
 }

@@ -42,7 +42,19 @@ npm run dev
 - `GET /api/neighborhoods`
 - `GET /api/neighborhoods/:id/snapshot`
 - `GET /api/neighborhoods/:id/view` / `GET /api/neighborhoods/:id/report` (compatibility)
+- `GET /api/kakao/maps-sdk/status` (Kakao Maps JS SDK 설정 진단)
 - `GET /runtime-config.js`
+
+## Kakao Maps SDK 진단
+
+브라우저에서 `Kakao Maps SDK failed to load`가 보이면 다음을 확인하세요.
+
+1. Kakao Developers 앱의 **Maps/Local(OPEN_MAP_AND_LOCAL)** 서비스가 활성화되어 있어야 합니다.
+2. Kakao JavaScript 키의 Web 플랫폼 사이트 도메인에 현재 접속 origin이 정확히 등록되어 있어야 합니다.
+   - 예: `http://127.0.0.1:4173` 또는 `http://localhost:4173`
+3. `.env`의 `KAKAO_JS_KEY`를 수정했다면 `npm run dev` 서버를 다시 시작하세요.
+
+현재 서버 상태는 `GET /api/kakao/maps-sdk/status`에서 확인할 수 있습니다. 이 응답은 JS 키 값을 노출하지 않습니다.
 
 ## 검증
 
