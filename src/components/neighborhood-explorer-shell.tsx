@@ -79,12 +79,8 @@ function DashboardHeader({
     <header className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-soft">
       <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_auto]">
         <div className="space-y-4 px-6 py-5 xl:px-7">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">
-            <MapPinned className="h-4 w-4" />
-            Dining atlas
-          </div>
           <div className="max-w-4xl">
-            <h1 className="text-3xl font-semibold tracking-[-0.03em] text-slate-950">맛집 탐색 노트</h1>
+            <h1 className="text-3xl font-semibold tracking-[-0.03em] text-slate-950">동네 맛집 탐방</h1>
             <p className="mt-2 max-w-[72ch] text-sm leading-6 text-slate-600">
               {activeNeighborhood ? `${activeNeighborhood.name}: ${activeNeighborhood.vibe}` : '선택된 동네를 기준으로 탐색 정보를 확인합니다.'}
             </p>
@@ -98,9 +94,9 @@ function DashboardHeader({
 
         <div className="flex min-w-[360px] flex-col justify-between gap-4 border-t border-slate-200 bg-slate-50/80 px-6 py-5 xl:border-l xl:border-t-0">
           <RestaurantSearchBox searchQuery={searchQuery} onSearchQueryChange={onSearchQueryChange} className="w-full" />
-          <Button variant="outline" className="h-11 rounded-full border-slate-200 bg-white text-slate-700 hover:bg-slate-100" aria-label="상세 정보 열기" onClick={onOpenDetail}>
+          <Button type="button" variant="outline" className="h-11 rounded-full border-slate-200 bg-white text-slate-700 hover:bg-slate-100" aria-label={selectedRestaurant ? `${selectedRestaurant.name} 상세정보 팝업 열기` : '맛집 상세정보 팝업 열기'} onClick={onOpenDetail}>
             <ListChecks className="h-4 w-4" />
-            선택 맛집 기록 보기
+            선택한 맛집 자세히 보기
           </Button>
         </div>
       </div>
@@ -124,11 +120,7 @@ function MobileAppHeader({
     <header className="sticky top-0 z-30 space-y-3 border-b border-slate-200 bg-white/95 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] shadow-[0_14px_34px_-28px_rgba(15,23,42,0.45)] backdrop-blur lg:hidden">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">
-            <Store className="h-4 w-4" />
-            Dining atlas
-          </div>
-          <h1 className="mt-1 truncate text-xl font-semibold tracking-[-0.02em] text-slate-950">맛집 탐색 노트</h1>
+          <h1 className="mt-1 truncate text-xl font-semibold tracking-[-0.02em] text-slate-950">동네 맛집 탐방</h1>
           <p className="mt-1 truncate text-sm text-slate-600">{activeNeighborhood?.name ?? '동네 선택'} · {selectedRestaurant?.name ?? '후보 탐색 중'}</p>
         </div>
 
@@ -212,14 +204,14 @@ function MobileBottomNavigation({ onOpenDetail }: { onOpenDetail: () => void }) 
     <nav className="fixed inset-x-0 bottom-0 z-[80] border-t border-slate-200 bg-white/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur lg:hidden" aria-label="모바일 앱 하단 내비게이션">
       <div className="mx-auto grid max-w-md grid-cols-3 gap-1 rounded-3xl border border-slate-200 bg-slate-50 p-1">
         {items.map(({ href, label, icon: Icon }) => (
-          <a key={href} href={href} className="flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-slate-900">
+          <a key={href} href={href} className="flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100">
             <Icon className="h-4 w-4" />
             <span>{label}</span>
           </a>
         ))}
-        <button type="button" aria-label="상세 정보 열기" className="flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-slate-900" onClick={onOpenDetail}>
+        <button type="button" aria-label="선택한 맛집 상세정보 팝업 열기" className="flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100" onClick={onOpenDetail}>
           <Store className="h-4 w-4" />
-          <span>상세</span>
+          <span>상세정보</span>
         </button>
       </div>
     </nav>
@@ -244,14 +236,14 @@ function DetailDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6" role="dialog" aria-modal="true" aria-label="상세 정보">
+    <div className="fixed inset-0 z-[100] flex items-end bg-slate-950/40 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6" role="dialog" aria-modal="true" aria-label="맛집 상세정보 팝업">
       <div className="max-h-[88vh] w-full overflow-auto rounded-t-[2rem] bg-white shadow-2xl sm:max-w-2xl sm:rounded-[2rem]">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">Selected place</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">상세 정보</h2>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">맛집 상세정보</h2>
           </div>
-          <Button type="button" variant="outline" size="icon" className="rounded-full border-slate-200 bg-white text-slate-600" onClick={onClose}>
+          <Button type="button" variant="outline" size="icon" className="rounded-full border-slate-200 bg-white text-slate-600" aria-label="맛집 상세정보 팝업 닫기" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -278,13 +270,19 @@ export function NeighborhoodExplorerShell({
   onSubmitRestaurantReview
 }: NeighborhoodExplorerShellProps) {
   const [detailOpen, setDetailOpen] = useState(false);
+  const visibleNeighborhoods = neighborhoods.filter((neighborhood) => neighborhood.id !== 'naver-shared');
+
+  function handleSelectRestaurant(id: string) {
+    onSelectRestaurant(id);
+    setDetailOpen(true);
+  }
 
   return (
     <main className="surface-grid min-h-screen">
       <MobileAppHeader
         activeNeighborhood={activeNeighborhood}
         activeNeighborhoodId={activeNeighborhoodId}
-        neighborhoods={neighborhoods}
+        neighborhoods={visibleNeighborhoods}
         onSearchQueryChange={onSearchQueryChange}
         onSelectNeighborhood={onSelectNeighborhood}
         searchQuery={searchQuery}
@@ -305,16 +303,16 @@ export function NeighborhoodExplorerShell({
           </div>
 
           <div className="hidden lg:block">
-            <NeighborhoodRail neighborhoods={neighborhoods} activeNeighborhoodId={activeNeighborhoodId} onSelectNeighborhood={onSelectNeighborhood} />
+            <NeighborhoodRail neighborhoods={visibleNeighborhoods} activeNeighborhoodId={activeNeighborhoodId} onSelectNeighborhood={onSelectNeighborhood} />
           </div>
 
           <SearchResultNotice searchQuery={searchQuery} resultCount={view.ranked.length} onSearchQueryChange={onSearchQueryChange} />
 
           <section id="map" className="scroll-mt-24 space-y-6">
-            <KakaoMapPanel view={view} selectedRestaurant={selectedRestaurant} onSelectRestaurant={onSelectRestaurant} />
+            <KakaoMapPanel view={view} selectedRestaurant={selectedRestaurant} onSelectRestaurant={handleSelectRestaurant} />
 
             <div id="recommendations" className="scroll-mt-24">
-              <TopFivePanel restaurants={view.top5} selectedRestaurantId={selectedRestaurantId} onSelectRestaurant={onSelectRestaurant} />
+              <TopFivePanel restaurants={view.top5} selectedRestaurantId={selectedRestaurantId} onSelectRestaurant={handleSelectRestaurant} />
             </div>
           </section>
 

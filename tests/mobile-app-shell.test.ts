@@ -5,16 +5,19 @@ import { readFile } from 'node:fs/promises';
 const shellSource = await readFile(new URL('../src/components/neighborhood-explorer-shell.tsx', import.meta.url), 'utf8');
 const layoutSource = await readFile(new URL('../src/app/layout.tsx', import.meta.url), 'utf8');
 
-test('mobile app shell prioritizes map, recommendations, and dialog details', () => {
+test('mobile app shell prioritizes map, recommendations, and popup details', () => {
   assert.match(shellSource, /function MobileAppHeader/);
   assert.match(shellSource, /function MobileBottomNavigation/);
   assert.match(shellSource, /function DetailDialog/);
   assert.match(shellSource, /href: '#map'/);
   assert.match(shellSource, /href: '#recommendations'/);
-  assert.match(shellSource, /onOpenDetail/);
+  assert.match(shellSource, /선택한 맛집 자세히 보기/);
+  assert.match(shellSource, /상세정보/);
   assert.match(shellSource, /role="dialog"/);
+  assert.match(shellSource, /setDetailOpen\(true\)/);
   assert.match(shellSource, /id="map"/);
   assert.match(shellSource, /id="recommendations"/);
+  assert.doesNotMatch(shellSource, /id="restaurant-detail"/);
   assert.doesNotMatch(shellSource, /id="ranking"/);
   assert.doesNotMatch(shellSource, /id="report"/);
 });

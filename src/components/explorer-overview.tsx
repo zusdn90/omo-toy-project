@@ -111,15 +111,11 @@ export function TopFivePanel({ restaurants, selectedRestaurantId, onSelectRestau
       <CardHeader className="space-y-2 border-b border-slate-200 bg-white p-6 sm:p-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Shortlist</p>
-            <CardTitle className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">자동 추천 Top 5</CardTitle>
+            <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-slate-950">자동 추천 Top 5</CardTitle>
           </div>
-          <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
-            지도와 동기화
-          </Badge>
         </div>
         <CardDescription className="max-w-2xl text-sm leading-6 text-slate-600">
-          출처와 위치 맥락만 남겨 빠르게 훑고, 누르면 지도와 상세 기록이 같은 후보로 맞춰집니다.
+          출처와 위치 맥락만 남겨 빠르게 훑고, 누르면 지도와 아래 상세정보가 같은 후보로 맞춰집니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4 sm:p-6 lg:p-8">

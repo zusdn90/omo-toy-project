@@ -35,7 +35,8 @@ test('Kakao place normalization keeps marker/list sync data available to the UI'
   assert.match(mapSource, /const address = restaurant\.roadAddressName \|\| restaurant\.addressName \|\| '주소 정보 없음';/);
   assert.match(mapSource, /주소/);
   assert.doesNotMatch(mapSource, /점수 \$\{escapeHtml\(restaurant\.score/);
-  assert.match(mapSource, /flex h-full min-h-\[520px\]/);
+  assert.match(mapSource, /flex h-full min-h-\[420px\]/);
+  assert.match(mapSource, /lg:min-h-\[520px\]/);
   assert.match(mapSource, /flex min-h-\[420px\] flex-1/);
   assert.match(explorerSource, /setSelectedRestaurantId\(id\)/);
 });

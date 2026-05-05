@@ -121,11 +121,14 @@ test('NeighborhoodExplorerShell renders the main sections for manual review', ()
     />
   );
 
-  assert(markup.includes('맛집 탐색 노트'));
-  assert(markup.includes('Dining atlas'));
+  assert(markup.includes('동네 맛집 탐방'));
+  assert(!markup.includes('맛집 탐색 노트'));
+  assert(!markup.includes('Dining atlas'));
   assert(markup.includes('surface-grid'));
   assert(markup.includes('후보 1곳'));
-  assert(markup.includes('선택 맛집 기록 보기'));
+  assert(markup.includes('선택한 맛집 자세히 보기'));
+  assert(!markup.includes('id="restaurant-detail"'));
+  assert(!markup.includes('네이버 저장 맛집'));
   assert(markup.includes('서울 전체'));
   assert(markup.includes('광진구'));
   assert(markup.includes('동대문구'));
@@ -146,7 +149,7 @@ test('NeighborhoodExplorerShell renders the main sections for manual review', ()
   assert(!markup.includes('지도 + 추천'));
   assert(!markup.includes('seeded fallback'));
   assert(!markup.includes('kakao local'));
-  assert(markup.includes('상세 정보'));
+  assert(markup.includes('상세정보'));
   assert(markup.includes('식당 이름으로 검색'));
   assert(!markup.includes('Neighborhood switcher'));
   assert(!markup.includes('동네 선택'));
@@ -162,8 +165,8 @@ test('TopFivePanel keeps recommendation scores out of the card surface', () => {
   const markup = renderToStaticMarkup(<TopFivePanel restaurants={view.top5} selectedRestaurantId="first" onSelectRestaurant={() => {}} />);
 
   assert(markup.includes('자동 추천 Top 5'));
-  assert(markup.includes('Shortlist'));
-  assert(markup.includes('지도와 동기화'));
+  assert(!markup.includes('Shortlist'));
+  assert(!markup.includes('지도와 동기화'));
   assert(markup.includes('overflow-x-auto'));
   assert(markup.includes('min-w-['));
   assert(markup.includes('Curated'));
@@ -206,6 +209,7 @@ test('SelectedRestaurantPanel shows readable unique address details without dupl
   );
 
   assert(markup.includes('맛집차트'));
+  assert(!markup.includes('차트 점수'));
   assert(markup.includes('도로명 주소'));
   assert(markup.includes('서울 종로구 종로 1'));
   assert(markup.includes('대한민국 구석구석 상세 페이지 열기'));

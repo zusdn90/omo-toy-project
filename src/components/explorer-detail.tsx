@@ -27,15 +27,28 @@ function getSourceLabel(restaurant: Restaurant) {
 }
 
 function getScoreLabel(restaurant: Restaurant) {
-  if (restaurant.source === 'visitkorea') {
-    return '차트 점수';
-  }
-
   if (restaurant.source === 'naver') {
     return '저장목록 점수';
   }
 
   return restaurant.source === 'kakao' ? '점수' : '가성비 점수';
+}
+
+function getRestaurantInfoCards(restaurant: Restaurant) {
+  const infoCards = [
+    { label: '카테고리', value: restaurant.category ?? '-' },
+    { label: '거리', value: formatDistance(restaurant.distanceMeters) },
+    { label: '전화', value: restaurant.phone ?? '-' }
+  ];
+
+  if (restaurant.source === 'visitkorea') {
+    return infoCards;
+  }
+
+  return [
+    { label: getScoreLabel(restaurant), value: String(restaurant.score ?? '-') },
+    ...infoCards
+  ];
 }
 
 function getUniqueAddressRows(restaurant: Restaurant) {
@@ -219,7 +232,7 @@ function RestaurantReviewSection({
           ))}
         </ul>
       ) : (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-600">아직 남겨진 리뷰가 없습니다. 첫 리뷰를 작성해 보세요.</div>
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-600">아직 남겨진 방문 리뷰가 없습니다. 이 맛집을 다녀온 뒤 첫 기록을 남겨보세요.</div>
       )}
     </section>
   );
@@ -241,9 +254,9 @@ export function SelectedRestaurantPanel({
   return (
     <Card className="overflow-hidden rounded-[2rem] border-slate-200 bg-white shadow-soft" data-testid="selected-restaurant-panel">
       <CardHeader className="space-y-2 border-b border-slate-200 bg-white p-6 sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Place record</p>
-        <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-slate-950">상세 정보</CardTitle>
-        <CardDescription className="max-w-2xl text-sm leading-6 text-slate-600">선택된 후보의 이유, 주소, 방문 기록을 한 화면에서 확인합니다.</CardDescription>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Place detail</p>
+        <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-slate-950">{selectedRestaurant ? `${selectedRestaurant.name} 상세정보` : '맛집 상세정보'}</CardTitle>
+        <CardDescription className="max-w-2xl text-sm leading-6 text-slate-600">지도에서 선택한 맛집의 주소, 추천 이유, 외부 장소 링크, 방문 리뷰를 바로 확인합니다.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 p-6 sm:p-8">
         {selectedRestaurant ? (
@@ -257,10 +270,9 @@ export function SelectedRestaurantPanel({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <InfoCard label={getScoreLabel(selectedRestaurant)} value={String(selectedRestaurant.score ?? '-')} />
-              <InfoCard label="카테고리" value={selectedRestaurant.category ?? '-'} />
-              <InfoCard label="거리" value={formatDistance(selectedRestaurant.distanceMeters)} />
-              <InfoCard label="전화" value={selectedRestaurant.phone ?? '-'} />
+              {getRestaurantInfoCards(selectedRestaurant).map(({ label, value }) => (
+                <InfoCard key={label} label={label} value={value} />
+              ))}
             </div>
 
             <Separator className="bg-slate-200" />

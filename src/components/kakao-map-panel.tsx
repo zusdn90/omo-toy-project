@@ -344,14 +344,14 @@ export function KakaoMapPanel({
   }, [selectedRestaurant?.id, view]);
 
   return (
-    <Card className="flex h-full min-h-[520px] flex-col overflow-hidden rounded-[2rem] border-slate-200 bg-white shadow-soft" data-testid="kakao-map-panel">
-      <CardHeader className="space-y-3 border-b border-slate-200 bg-white p-6 sm:p-8">
+    <Card className="flex h-full min-h-[420px] flex-col overflow-hidden rounded-[2rem] border-slate-200 bg-white shadow-soft lg:min-h-[520px]" data-testid="kakao-map-panel">
+      <CardHeader className="hidden space-y-3 border-b border-slate-200 bg-white p-6 sm:p-8 lg:block">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Map view</p>
             <CardTitle className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">지도 탐색</CardTitle>
             <CardDescription className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              카카오맵 위에서 마커를 누르거나 추천 카드를 선택하면 같은 후보가 강조됩니다.
+              카카오맵 위에서 마커를 누르거나 추천 카드를 선택하면 지도와 아래 상세정보가 같은 후보로 바뀝니다.
             </CardDescription>
           </div>
           <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
